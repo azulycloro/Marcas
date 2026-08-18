@@ -628,7 +628,7 @@
                 </div>
                 <div style="overflow-x: auto; margin-bottom: 20px;">
                     <table class="projection-table" id="tablaProyeccionLP">
-                        <!-- Se llena dinámicamente (11 columnas x 4 filas) -->
+                        <!-- Se llena dinámicamente (columnas = años de historial real + proyección; 5 filas) -->
                     </table>
                 </div>
                 <!-- Leyenda personalizada con muestras de línea en lugar de cuadros de color -->
@@ -679,6 +679,15 @@
         };
 
         const listaPruebas17 = ["50L", "100L", "200L", "400L", "800L", "1500L", "50E", "100E", "200E", "50P", "100P", "200P", "50M", "100M", "200M", "200CI", "400CI"];
+
+        // Parámetros del panel "Análisis y Proyección a Largo Plazo" (ver actualizarPanelProyeccionLP).
+        // Antes de EDAD_LIMITE_DESARROLLO años, el nadador está en etapa de desarrollo y se
+        // proyecta hasta que cumpla EDAD_OBJETIVO_PROYECCION (horizonte más largo, útil para
+        // fijar metas de mediano plazo). De ahí en adelante, siempre se proyectan
+        // ANIOS_PROYECCION_ESTABLE años hacia delante desde el año actual.
+        const EDAD_LIMITE_DESARROLLO = 16;
+        const EDAD_OBJETIVO_PROYECCION = 20;
+        const ANIOS_PROYECCION_ESTABLE = 5;
 
         // Enlaces de Ranking Anual para el panel de Proyección a Largo Plazo (respaldo)
         const mapaRankingAnualDefault = {
@@ -2285,39 +2294,42 @@
 
             let edadActual = parseInt(String(nadador.edad).replace(/\D/g, "")) || 15;
             let anioActual = new Date().getFullYear();
-            let anioInicio = edadActual < 16 ? anioActual - (edadActual - 10) : anioActual - 5;
 
-            let anios = [];
-            for (let i = 0; i < 11; i++) {
-                anios.push(anioInicio + i);
-            }
+            // ¿Hasta qué año se proyecta hacia delante? Se preserva el diseño original: un
+            // nadador en desarrollo (menor de EDAD_LIMITE_DESARROLLO años) proyecta hasta
+            // cumplir EDAD_OBJETIVO_PROYECCION años; de ahí en adelante, siempre se proyectan
+            // ANIOS_PROYECCION_ESTABLE años hacia delante desde hoy.
+            let anioFinProyeccion = edadActual < EDAD_LIMITE_DESARROLLO
+                ? anioActual + (EDAD_OBJETIVO_PROYECCION - edadActual)
+                : anioActual + ANIOS_PROYECCION_ESTABLE;
 
-            let edadesCol = anios.map(y => edadActual + (y - anioActual));
+            // ¿Desde qué año arranca la tabla? En vez de asumir que todo nadador empezó a
+            // competir exactamente a los 10 años (lo que además se rompía matemáticamente
+            // para una edad hipotética menor a 10), se busca el primer año -entre TODOS los
+            // años que tengan hoja configurada en mapaRankingAnual- en el que el nadador
+            // tiene una marca real para ESTA prueba puntual. Así, a medida que se agreguen
+            // temporadas más antiguas a la hoja de configuración, esa historia real aparece
+            // sola, sin tocar código ni depender de un supuesto de edad.
+            let aniosConfigurados = Object.keys(mapaRankingAnual)
+                .map(Number)
+                .filter(a => a <= anioActual && mapaRankingAnual[a] && mapaRankingAnual[a][generoActual])
+                .sort((a, b) => a - b);
 
-            // Los años ya cacheados (cacheRankingsAnuales) se resuelven al instante sin red;
-            // los que faltan se piden con un máximo de 4 en paralelo (antes podían salir
-            // hasta 11 peticiones al mismo tiempo en la primera consulta de un nadador).
-            let resultadosAnuales = await conConcurrenciaLimitada(anios, 4, async (anio) => {
-                let marcaStr = "-";
-                let segs = null;
+            let keyBusqueda = `${nadador.nombre.toUpperCase()}_${pruebaSel.toUpperCase()}`;
 
-                if (mapaRankingAnual[anio]) {
-                    let sheetId = mapaRankingAnual[anio][generoActual];
-                    if (sheetId) {
-                        let dataAnual = cacheRankingsAnuales[`${anio}_${generoActual}`];
-                        if (!dataAnual) {
-                            dataAnual = await fetchRankingAnualSheet(sheetId);
-                            cacheRankingsAnuales[`${anio}_${generoActual}`] = dataAnual;
-                        }
-
-                        let keyBusqueda = `${nadador.nombre.toUpperCase()}_${pruebaSel.toUpperCase()}`;
-                        if (dataAnual && dataAnual.has(keyBusqueda)) {
-                            marcaStr = dataAnual.get(keyBusqueda);
-                            segs = tiempoASegundos(marcaStr);
-                        }
-                    }
+            // Se piden (o se reutilizan del caché) TODOS los años configurados —no solo una
+            // ventana fija de 11— para poder ubicar el primer año real del nadador en esta
+            // prueba. Un máximo de 4 en paralelo, igual que antes; una vez cacheado un año,
+            // las siguientes selecciones de nadador/prueba lo reutilizan al instante.
+            let resultadosConfigurados = await conConcurrenciaLimitada(aniosConfigurados, 4, async (anio) => {
+                let sheetId = mapaRankingAnual[anio][generoActual];
+                let dataAnual = cacheRankingsAnuales[`${anio}_${generoActual}`];
+                if (!dataAnual) {
+                    dataAnual = await fetchRankingAnualSheet(sheetId);
+                    cacheRankingsAnuales[`${anio}_${generoActual}`] = dataAnual;
                 }
-                return { marcaStr, segs };
+                let marcaStr = (dataAnual && dataAnual.has(keyBusqueda)) ? dataAnual.get(keyBusqueda) : null;
+                return { anio, marcaStr, segs: marcaStr ? tiempoASegundos(marcaStr) : null };
             });
 
             // Respuesta obsoleta: el usuario ya seleccionó otro nadador u otra prueba mientras
@@ -2326,8 +2338,25 @@
                 return;
             }
 
-            let marcasRealesStrs = resultadosAnuales.map(r => r.marcaStr);
-            let marcasRealesSegs = resultadosAnuales.map(r => r.segs);
+            let mapaResultadosPorAnio = new Map(resultadosConfigurados.map(r => [r.anio, r]));
+            let primerConMarca = resultadosConfigurados.find(r => r.segs !== null && r.segs > 0);
+            // Si el nadador nunca ha nadado esta prueba en ningún año configurado, se arranca
+            // en el año actual (como si este fuera su primer año, igual que el caso de un
+            // debutante en el diseño original).
+            let anioInicio = primerConMarca ? primerConMarca.anio : anioActual;
+
+            let anios = [];
+            for (let a = anioInicio; a <= anioFinProyeccion; a++) anios.push(a);
+
+            let edadesCol = anios.map(y => edadActual + (y - anioActual));
+            let marcasRealesStrs = anios.map(a => {
+                let r = mapaResultadosPorAnio.get(a);
+                return (r && r.marcaStr) ? r.marcaStr : "-";
+            });
+            let marcasRealesSegs = anios.map(a => {
+                let r = mapaResultadosPorAnio.get(a);
+                return r ? r.segs : null;
+            });
 
             // Restaurar texto informativo con datos reales
             document.getElementById("infoTiempoPwaLP").value = `Prueba: ${pruebaSel} | Tiempo: ${tiempoTxt} | Puntos WA: ${pwaTxt}`;
