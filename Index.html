@@ -1,0 +1,2626 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Rendimiento Individual</title>
+    <!-- Librería Chart.js para los Gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <style>
+        /* Encabezado del autor */
+        .header-autor {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: #e5e7eb; /* Fondo gris */
+            color: #9ca3af; /* Texto en gris claro */
+            font-family: 'Calibri', sans-serif;
+            font-size: 9px;
+            text-align: center;
+            padding: 4px 0;
+            box-sizing: border-box;
+            z-index: 1000;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .main-container {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        /* Selector de Género */
+        .gender-selector {
+            display: flex;
+            gap: 12px;
+            background: white;
+            padding: 16px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            justify-content: center;
+        }
+        .gender-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #051933;
+            background: white;
+            color: #051933;
+            font-size: 14px;
+            font-weight: 900;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+        .gender-btn.active {
+            background: #051933;
+            color: white;
+        }
+
+        /* Bloque Superior: Buscar Nadador */
+        .search-card {
+            background: white;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            position: relative;
+        }
+        .search-title {
+            color: #051933;
+            font-size: 16px;
+            font-weight: 900;
+            margin-top: 0;
+            margin-bottom: 14px;
+            letter-spacing: 0.5px;
+        }
+        .autocomplete-container {
+            position: relative;
+            width: 100%;
+        }
+        .input-wrapper {
+            position: relative;
+            width: 100%;
+            cursor: pointer;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 16px 45px 16px 18px;
+            border: 1px solid #dcdcdc;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 700;
+            box-sizing: border-box;
+            outline: none;
+            color: #0b2246;
+            background-color: #fff;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+        input[type="text"]::placeholder {
+            color: #aaa;
+            font-weight: normal;
+            text-transform: none;
+        }
+        input[type="text"]:focus {
+            border-color: #0b2246;
+        }
+        .select-icon {
+            position: absolute;
+            right: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #0b2246;
+            font-size: 14px;
+            pointer-events: none;
+            transition: transform 0.2s;
+        }
+        .input-wrapper.open .select-icon {
+            transform: translateY(-50%) rotate(180deg);
+        }
+        .suggestions-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border: 1px solid #dcdcdc;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            max-height: 250px;
+            overflow-y: auto;
+            text-align: left;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.08);
+            margin-top: 2px;
+        }
+        .suggestions-list div {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 15px;
+            font-weight: 700;
+            color: #0b2246;
+        }
+        .suggestions-list div:hover {
+            background-color: #f0f4f8;
+        }
+
+        /* Bloque Inferior: Panel de Rendimiento Individual */
+        .performance-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            display: none;
+        }
+        .performance-header {
+            background-color: #051933;
+            color: white;
+            text-align: center;
+            padding: 14px;
+            font-size: 15px;
+            font-weight: 900;
+            letter-spacing: 0.8px;
+        }
+        .performance-body {
+            padding: 24px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .info-box {
+            background: #f4f7fc;
+            border: 1px solid #e1e8ed;
+            border-radius: 12px;
+            padding: 18px;
+        }
+        .box-label {
+            display: block;
+            font-size: 12px;
+            color: #3b65c2;
+            font-weight: 900;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+        .box-value-compact {
+            font-size: 12px;
+            font-weight: 900;
+            display: block;
+            color: #0b2246;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        /* Bloque de Listado de Pruebas Colapsible */
+        .pruebas-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            display: none;
+        }
+        .collapsible-header {
+            background-color: #df9932;
+            color: white;
+            padding: 16px 20px;
+            font-size: 15px;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+        .collapsible-header span.toggle-icon {
+            font-size: 18px;
+            font-weight: 900;
+        }
+        .collapsible-content {
+            display: none;
+            overflow-x: auto;
+        }
+        .pruebas-card.open .collapsible-content {
+            display: block;
+        }
+        .pruebas-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+        }
+        .pruebas-table th {
+            background-color: #f0f4f8;
+            color: #64748b;
+            padding: 14px 20px;
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .pruebas-table td {
+            padding: 14px 20px;
+            border-bottom: 1px solid #edf2f7;
+            color: #0b2246;
+            font-weight: normal;
+        }
+        .pruebas-table tr:last-child td {
+            border-bottom: none;
+        }
+        .pruebas-table tr:hover {
+            background-color: #f8fafc;
+        }
+
+        /* Estilos específicos para la tabla MMIC según solicitud */
+        .mmic-table th:first-child,
+        .mmic-table td:first-child {
+            text-align: left;
+        }
+        .mmic-table th:last-child,
+        .mmic-table td:last-child {
+            text-align: right;
+        }
+        .mmic-table th:not(:first-child):not(:last-child),
+        .mmic-table td:not(:first-child):not(:last-child) {
+            text-align: center;
+        }
+
+        /* Bloque de Perfil de Versatilidad (Gráfico de Radar Colapsible) */
+        .versatility-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            display: none;
+        }
+        .versatility-content {
+            display: none;
+            padding: 24px;
+            text-align: center;
+        }
+        .versatility-card.open .versatility-content {
+            display: block;
+        }
+        .chart-wrapper {
+            position: relative;
+            margin: auto;
+            height: 350px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        /* Bloque de Historial Últimos 12 Meses */
+        .historial-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            display: none;
+        }
+        .historial-content {
+            display: none;
+            overflow-x: auto;
+            padding: 0;
+        }
+        .historial-card.open .historial-content {
+            display: block;
+        }
+        .historial-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        .historial-table th {
+            background-color: #051933;
+            color: white;
+            padding: 10px 10px;
+            font-weight: 900;
+            font-size: 13px;
+            border: 1px solid #e2e8f0;
+        }
+        .historial-table th:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 3;
+            background-color: #051933;
+        }
+        .historial-table td:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 2;
+        }
+        .historial-table td {
+            padding: 10px 10px;
+            border: 1px solid #e2e8f0;
+            color: #0b2246;
+            font-weight: normal;
+        }
+        .historial-table tr.month-row-even td {
+            background-color: #ffffff;
+        }
+        .historial-table tr.month-row-odd td {
+            background-color: #fcf8e3;
+        }
+        .historial-table td.month-label {
+            font-weight: normal;
+            text-align: center;
+        }
+        .historial-table tr.mmp-row td {
+            background-color: #f3d4a0;
+            font-weight: normal;
+            color: #0b2246;
+        }
+        .historial-table tr.mmp-row td:first-child {
+            background-color: #f3d4a0;
+        }
+        .summary-row-sec td, .summary-row-pct td {
+            font-size: 13px;
+            padding: 10px 10px;
+            border: 1px solid #e2e8f0;
+            white-space: nowrap;
+            color: #0b2246;
+            font-weight: normal;
+        }
+        .summary-row-sec td:first-child, .summary-row-pct td:first-child {
+            color: #0b2246;
+        }
+
+        /* Bloque de Progresión de Tiempos */
+        .progression-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            display: none;
+        }
+        .progression-content {
+            display: none;
+            padding: 24px;
+        }
+        .progression-card.open .progression-content {
+            display: block;
+        }
+        .progression-controls {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .progression-controls label {
+            font-size: 13px;
+            font-weight: 900;
+            color: #051933;
+            text-transform: uppercase;
+        }
+        .progression-select {
+            padding: 10px 16px;
+            border: 1px solid #dcdcdc;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #0b2246;
+            background-color: #fff;
+            outline: none;
+            cursor: pointer;
+        }
+        .progression-chart-wrapper {
+            position: relative;
+            margin: auto;
+            height: 380px;
+            width: 100%;
+            background-color: #fefce8;
+            border-radius: 8px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        /* Estilos específicos para la tabla de proyección a largo plazo */
+        .projection-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .projection-table th, .projection-table td {
+            border: 1px solid #e2e8f0;
+            padding: 8px 6px;
+            color: #0b2246;
+        }
+        .projection-table th {
+            background-color: #df9932;
+            color: white;
+            font-weight: 900;
+        }
+        .projection-table tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        @media (max-width: 640px) {
+            .performance-body { grid-template-columns: 1fr; }
+            .chart-wrapper { height: 250px; max-width: 280px; }
+            .progression-chart-wrapper { height: 320px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Nuevo Encabezado -->
+    <div class="header-autor">Elaborado por: Juan Albarracin. <span id="anioFooter">2026</span></div>
+    <div id="avisoError" style="display:none; position:fixed; top:24px; left:0; right:0; background:#dc2626; color:#fff; text-align:center; padding:12px 16px; font-family: Arial, sans-serif; font-size:14px; font-weight:700; z-index:2000; box-shadow:0 2px 8px rgba(0,0,0,0.2);"></div>
+
+    <div class="main-container">
+        <!-- SELECTOR DE GÉNERO -->
+        <div class="gender-selector">
+            <button id="btnFemenino" class="gender-btn active" onclick="cambiarGenero('femenino')">Femenino</button>
+            <button id="btnMasculino" class="gender-btn" onclick="cambiarGenero('masculino')">Masculino</button>
+        </div>
+
+        <!-- BUSCAR NADADOR -->
+        <div class="search-card">
+            <h3 class="search-title">BUSCAR NADADOR</h3>
+            <div class="autocomplete-container">
+                <div class="input-wrapper" id="inputWrapper">
+                    <input type="text" id="buscadorNadador" placeholder="Cargando datos..." disabled autocomplete="off">
+                    <span class="select-icon">▼</span>
+                </div>
+                <div id="listaSugerencias" class="suggestions-list"></div>
+            </div>
+        </div>
+
+        <!-- DATOS DEL NADADOR -->
+        <div id="panelRendimiento" class="performance-card">
+            <div class="performance-header">DATOS DEL NADADOR</div>
+            <div class="performance-body">
+                <div class="info-box">
+                    <span class="box-label">NADADOR</span>
+                    <span id="valNadador" class="box-value-compact">-</span>
+                </div>
+                <div class="info-box">
+                    <span class="box-label">CATEGORÍA | EDAD | LIGA | CLUB</span>
+                    <span id="valCatEdClub" class="box-value-compact">-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- LISTADO DE PRUEBAS DEL NADADOR (RANKING COLAPSIBLE) -->
+        <div id="panelPruebas" class="pruebas-card">
+            <div class="collapsible-header" onclick="togglePanel('panelPruebas','toggleIcon')">
+                <span>MEJORES PRUEBAS POR RANKING</span>
+                <span class="toggle-icon" id="toggleIcon">+</span>
+            </div>
+            <div class="collapsible-content">
+                <table class="pruebas-table">
+                    <thead>
+                        <tr>
+                            <th>Prueba</th>
+                            <th>Tiempo (MM)</th>
+                            <th>Ranking</th>
+                            <th>PWA</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaPruebasBody">
+                        <!-- Las filas se llenarán dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- PANEL ANÁLISIS DE MARCAS MÍNIMAS -->
+        <div id="panelMMIC" class="pruebas-card">
+            <div class="collapsible-header" style="background-color: #0d9488;" onclick="togglePanel('panelMMIC','toggleIconMMIC')">
+                <span>ANÁLISIS DE MARCAS MÍNIMAS</span>
+                <span class="toggle-icon" id="toggleIconMMIC">+</span>
+            </div>
+            <div class="collapsible-content" style="padding: 20px;">
+                <div style="margin-bottom: 16px;">
+                    <label for="selectTorneoMinimas" class="box-label" style="margin-bottom: 6px;">Seleccionar Torneo:</label>
+                    <select id="selectTorneoMinimas" class="progression-select" style="width: 100%;" onchange="onCambioTorneoMinimas()">
+                        <option value="">Cargando torneos...</option>
+                    </select>
+                </div>
+                
+                <div class="info-box" style="margin-bottom: 16px;">
+                    <span id="lineaSedeAnio" class="box-value-compact" style="margin-bottom: 4px; font-weight: normal;">Sede/Año: -</span>
+                    <span id="lineaFechaTorneo" class="box-value-compact" style="margin-bottom: 4px; font-weight: normal;">Fecha del Torneo: -</span>
+                    <span id="lineaPeriodoClasificacion" class="box-value-compact" style="margin-bottom: 4px; font-weight: normal;">Periodo de Clasificación: -</span>
+                    <span id="lineaCategoriasConvocadas" class="box-value-compact" style="font-weight: normal;">Categorías Convocadas: -</span>
+                </div>
+
+                <div id="advertenciaMinimas" style="display: none; padding: 20px; text-align: center; font-weight: bold; color: #b91c1c; background: #fee2e2; border-radius: 8px; margin-bottom: 16px;">
+                    Aún no se han cargado las Marcas Mínimas para este Torneo.
+                </div>
+
+                <div id="contenedorTablaMinimas">
+                    <table class="pruebas-table mmic-table">
+                        <thead>
+                            <tr>
+                                <th>Prueba</th>
+                                <th>Tiempo</th>
+                                <th>Mínima</th>
+                                <th>Fecha</th>
+                                <th>% de Aproximación</th>
+                                <th>Cumple</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaMMICBody">
+                            <!-- Se llena dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- PERFIL DE VERSATILIDAD (GRÁFICO DE RADAR COLAPSIBLE) -->
+        <div id="panelVersatilidad" class="versatility-card">
+            <div class="collapsible-header" style="background-color: #051933;" onclick="togglePanel('panelVersatilidad','toggleIconVersatilidad', () => myChart)">
+                <span>PERFIL DE VERSATILIDAD</span>
+                <span class="toggle-icon" id="toggleIconVersatilidad">+</span>
+            </div>
+            <div class="versatility-content">
+                <div class="chart-wrapper">
+                    <canvas id="specialtyChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- HISTORIAL ÚLTIMOS 12 MESES -->
+        <div id="panelHistorial" class="historial-card">
+            <div class="collapsible-header" style="background-color: #df9932;" onclick="togglePanel('panelHistorial','toggleIconHistorial')">
+                <span>HISTORIAL ÚLTIMOS 12 MESES</span>
+                <span class="toggle-icon" id="toggleIconHistorial">+</span>
+            </div>
+            <div class="historial-content">
+                <table class="historial-table" id="tablaHistorial">
+                    <!-- Se llena dinámicamente -->
+                </table>
+            </div>
+        </div>
+
+        <!-- PANEL DE PROGRESIÓN DE TIEMPOS -->
+        <div id="panelProgresion" class="progression-card">
+            <div class="collapsible-header" style="background-color: #051933;" onclick="togglePanel('panelProgresion','toggleIconProgresion', () => progressionChartInstance)">
+                <span>GRÁFICO DE PROGRESIÓN DE TIEMPOS</span>
+                <span class="toggle-icon" id="toggleIconProgresion">+</span>
+            </div>
+            <div class="progression-content">
+                <div class="progression-controls">
+                    <label for="selectPruebaProgresion">Prueba:</label>
+                    <select id="selectPruebaProgresion" class="progression-select" onchange="actualizarGraficoProgresion()">
+                        <!-- Se llena dinámicamente -->
+                    </select>
+                </div>
+                <div class="progression-chart-wrapper">
+                    <canvas id="progressionChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANEL DE ANÁLISIS Y PROYECCIÓN A LARGO PLAZO -->
+        <div id="panelProyeccionLP" class="progression-card">
+            <div class="collapsible-header" style="background-color: #1e3a8a;" onclick="togglePanel('panelProyeccionLP','toggleIconProyeccionLP', () => projectionChartInstance)">
+                <span>ANÁLISIS Y PROYECCIÓN A LARGO PLAZO</span>
+                <span class="toggle-icon" id="toggleIconProyeccionLP">+</span>
+            </div>
+            <div class="progression-content">
+                <div class="progression-controls">
+                    <label for="selectPruebaLP">Prueba:</label>
+                    <select id="selectPruebaLP" class="progression-select" onchange="actualizarPanelProyeccionLP()"></select>
+                    <div style="flex: 1; min-width: 200px;">
+                        <input type="text" id="infoTiempoPwaLP" readonly style="padding: 10px; width: 100%; border: 1px solid #dcdcdc; border-radius: 8px; font-weight: bold; background: #f8fafc; color: #0b2246;" placeholder="Tiempo y Puntos WA...">
+                    </div>
+                </div>
+                <div style="overflow-x: auto; margin-bottom: 20px;">
+                    <table class="projection-table" id="tablaProyeccionLP">
+                        <!-- Se llena dinámicamente (11 columnas x 4 filas) -->
+                    </table>
+                </div>
+                <!-- Leyenda personalizada con muestras de línea en lugar de cuadros de color -->
+                <div class="custom-chart-legend" style="display: flex; justify-content: center; gap: 24px; margin-bottom: 12px; font-size: 13px; font-weight: bold; color: #051933; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <svg width="30" height="10" style="flex-shrink: 0;"><line x1="0" y1="5" x2="30" y2="5" stroke="#051933" stroke-width="3"/></svg>
+                        <span id="legendLabelReal">Mejor Marca</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <svg width="30" height="10" style="flex-shrink: 0;"><line x1="0" y1="5" x2="30" y2="5" stroke="#3b65c2" stroke-width="2" stroke-dasharray="5,5"/></svg>
+                        <span id="legendLabelProy">Marca Proyectada</span>
+                    </div>
+                </div>
+                <div class="progression-chart-wrapper">
+                    <canvas id="chartProyeccionLP"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================================================
+        // CONFIGURACIÓN DINÁMICA (antes hardcodeada)
+        // -------------------------------------------------------------------------------------
+        // Los IDs de hojas de "configs", "dbMeses" y "mapaRankingAnual" ahora se cargan desde
+        // una hoja de Google Sheets de configuración (ver cargarConfiguracion()), para poder
+        // agregar meses/años nuevos sin tocar el código.
+        //
+        // Los objetos "*Default" de abajo quedan como RESPALDO: si la hoja de configuración
+        // todavía no existe, no tiene los datos, o falla la carga, la app sigue funcionando
+        // con estos valores conocidos (los mismos que ya tenías hardcodeados).
+        // =====================================================================================
+
+        // 👉 Reemplaza esto por el ID real de tu hoja de configuración cuando la crees.
+        const CONFIG_SHEET_ID = "18Om_H0myfJqhghEeTVVuGz-Noh06dKjJVIV9He3_8vQ";
+
+        const configsDefault = {
+            femenino: {
+                id: "1jQO5Cu_NNs0_4HN-qOqV3TRK9qrWBYW-u8WaZKIcT_g",
+                sheet: "Filteru",
+                prevId: "163sqysc1_Y1JGfmDn9JgqCdIsrqJYOGiuk7sSaJudGw"
+            },
+            masculino: {
+                id: "13Ty95xVcM51HNT62CVAOoc4rIdEcKc8WVwQ-mi1Z1qw",
+                sheet: "Filteru",
+                prevId: "1uyyU9LcSyZ6c3BcaQG4Njzr6HnwTVf_LPM_3b0is-Ks"
+            }
+        };
+
+        const listaPruebas17 = ["50L", "100L", "200L", "400L", "800L", "1500L", "50E", "100E", "200E", "50P", "100P", "200P", "50M", "100M", "200M", "200CI", "400CI"];
+
+        // Enlaces de Ranking Anual para el panel de Proyección a Largo Plazo (respaldo)
+        const mapaRankingAnualDefault = {
+            2021: { femenino: "1ZWgvwWPyiO3Iukfj0foMV0Bq6WD5TQgkWBsqjedlj7Q", masculino: "14q390-H4lde49HKn4ro6F1_mFdu_6izc1QaTmlevv7s" },
+            2022: { femenino: "1tB9myxCEMrUhGP3cgF-vpTY3b6DDURqYKFnXUwpJo8k", masculino: "1B3Ba00WU_M4oIxBuZ4xEfbJi1WxbmS3VW2Wo6_Q_Z_E" },
+            2023: { femenino: "1XWBeNeg2-fjtcyVqOUfhoH0l3z9UkVunF5JEEFPtDyQ", masculino: "1VbxVjVEUhEm17Jv-ZS375QG5qZEyNCrtZ8XIAWTCXkI" },
+            2024: { femenino: "1VLabmBveBIEvNH41wJg9rehNqv7DfTPkh3DhHS7YMF4", masculino: "1Iw32-edL8y3qD1wxH-q2oBMIMiWgMVgjuwoX2J-uu4g" },
+            2025: { femenino: "163sqysc1_Y1JGfmDn9JgqCdIsrqJYOGiuk7sSaJudGw", masculino: "1uyyU9LcSyZ6c3BcaQG4Njzr6HnwTVf_LPM_3b0is-Ks" },
+            2026: { femenino: "1cUR5F17e2NB4kih_nTfoHetGsWvgFTSqMjbhefxIkfA", masculino: "18OBGMoVDeq2z1EPrVtTaY74EuUVBE2WR76lzoVDCe58" }
+        };
+
+        // IDs de hojas "sueltas" que antes vivían hardcodeados directo en el código (a
+        // diferencia de "configs"/"dbMeses"/"mapaRankingAnual", que ya se cargaban desde
+        // CONFIG_SHEET_ID). Ahora también son sobreescribibles desde la hoja de configuración
+        // (pestaña "Otros"), manteniendo estos valores como respaldo si esa pestaña no existe.
+        const ID_HOJA_PROYECCION_DEFAULT = "15zp91o7myc33RF2bgkOJ6O6nVO3bxLg7F4KThynRc4o";
+        const ID_INDICE_MINIMAS_DEFAULT = "1Uzg5wosX7xqbX-exrKrbJNAQ9-R-Jfz7q0hkCf8VrlI";
+        let idHojaProyeccionActual = ID_HOJA_PROYECCION_DEFAULT;
+        let idIndiceMinimasActual = ID_INDICE_MINIMAS_DEFAULT;
+
+        let cachePorcentajesProyeccion = {};
+        let cacheRankingsAnuales = {}; // Almacenará los datos cargados por año (dinámico, ya no limitado a 2021-2026)
+
+        // Cache de las hojas de historial mensual: la información de cada mes (dbMeses) es
+        // la MISMA para todos los nadadores de un género — no depende de a quién estés viendo.
+        // Antes, cada clic en un nadador distinto volvía a pedir las 13 hojas completas.
+        // Ahora se piden UNA sola vez por mes/tipo/género y se reutilizan para todos.
+        // clave: `${mesIndex}_${tipo}_${genero}` -> Map(nombreUpper -> {prueba: tiempoStr})
+        let cacheHojasHistorial = {};
+        let promesasHojasHistorialEnCurso = {}; // evita pedir la misma hoja 2 veces si llegan clics rápidos
+
+        // Evita que un doble clic rápido en "Femenino"/"Masculino" dispare dos tandas
+        // completas de peticiones (hoja actual + hoja anterior) para el mismo género
+        // mientras la primera todavía está en vuelo: la segunda llamada reutiliza la
+        // misma promesa en vez de volver a pedir las hojas.
+        let promesasCargaGenero = {};
+
+        const dbMesesDefault = {
+            0: { anterior: { femenino: "1ew2ZN76WSGgCmW0C3G4DYZqRKXSfMuGKgqfbln-ot2U", masculino: "19pJtjIO83ffTW208iJoEMfXVRdaAvInTKfEv_Cme-HY" }, actual: { femenino: "1XwFuCgL4Cz5Hfl6cjFdQRQW9X2uedrN-5jtivNDHqkw", masculino: "1oG0o-eQuyymqOVg8CPn-3XrA_jxZOXHqg5IpwMLW960" } },
+            1: { anterior: { femenino: "1PjqX94Cj3taMahFMi2gpf_KbU16k2U2HkHbGxRYnBAg", masculino: "1w7e0HjtBDnX3LaG1IFoIzvsrrDADAsUQRbwfijDbp5s" }, actual: { femenino: "15LtVEpTDzZszPPhcNK32FyY5ULmAUODD7HEEeaCi9uM", masculino: "1YeN0jr2M_D15wdLakEo4h0xE5YUIBZM57Ad3_YC1XKY" } },
+            2: { anterior: { femenino: "1uhGl2XGVzU9sAE9Al-L17h5gyvwmywUdY5QGBhc-D4Q", masculino: "1mrkxPz2agu07tVaB6DhTUNNZj_6hR_wOsz9qjcoDUso" }, actual: { femenino: "1W8fNKNcC28D4DRGOJXX7l-bFxGBkHXtvoyVeX8baYlE", masculino: "1rEF2CD_hjpL92FbXn7FDYYYidewxu1vpYskk_leL5jI" } },
+            3: { anterior: { femenino: "1ANPHSfMZX5jPRqjxqOfvjJSsJSlfs6ZJnrMGa5Hg7kM", masculino: "1CCpLGl-C_QZ4AWoDBj4lOd6IjqKPG0lsCg3EgJW6xnE" }, actual: { femenino: "19vNGosw1wtMVqI5ZHN88Zrr7MxBo6yRvJX9yC6IClp4", masculino: "1US27QgaIkRUggyxnuQHAdB81QWujDxOKQfa7io84fEg" } },
+            4: { anterior: { femenino: "17FgOve9xYdc7NvTvmCTFu0qBWO6rdZRiIp7qRhlxCNc", masculino: "1dcBaf_JsNHrE4OgCIt7PgTQB3dD8fpEq-U4FUrFQwOs" }, actual: { femenino: "1wA_aXODJvEyh7ckJ3c8CaYGAM16mktddiWHgtqtdULo", masculino: "1DX_LIl-q6FoFhyN81XQXSrGj0FtYDdFaqqhrr7dn6AQ" } },
+            5: { anterior: { femenino: "13KwhHYaSvyc0C_RJeN0t36MjTS74fawQPHpWiyB6-pE", masculino: "1y_QKTjxyO3cwR0lpAC8BwEYg_imXpb3TVnrFzD0cYqI" }, actual: { femenino: "1YHxBANxsrHhbfHQPE6pPVBU-BhoVfGvVJ2Dydap9CrA", masculino: "1eJ3xWFZ9_KS92KmqBck3nysULoIPUsrQY17558xsSq4" } },
+            6: { anterior: { femenino: "1w8A7Rbm-8U9XxmN9HIhn0E_f7hKLAGOrm-8jdlqrdQs", masculino: "1N4aijvSfnqQtPxPWrmAiVb4IgGgP0XZ7a51KRutcmlk" }, actual: { femenino: "1vdxTB0gyivNifl8XdivxbditsI8dtwM-KZ5rHL6lGLo", masculino: "14HT6iguSRyU4eyayCIW2YKLYIgpeIHOXrfQte-zSjiI" } },
+            7: { anterior: { femenino: "1K_MsHIELslrFBrJQxs2rp0uOCqeGasa7TB1a14GGn2c", masculino: "1kIhKmBlWYWKAyEw0bOIBeVrB6cyE9WzEiTbxSLqdYqc" }, actual: { femenino: "1sQJcw0lpDXpv_jJxzOLvs2S2-KKCVKIwMHlYhDzElcg", masculino: "1boMhN4nl88CuwwhUkTn7IWQnkC6P_bhgMEy2KadqGls" } },
+            8: { anterior: { femenino: "11w0aFjhatmBNO1uFPv6D0B2FOtcbHq6BUX4c1rpPQlo", masculino: "1yzNVzCStNCNEKGTYmSbg0eRkbvYl5UZrDUMqcS0Tm8w" }, actual: { femenino: "1e2l8VsYlkKwI_QturKbF-JszuO7MUxnLanjIemZG73s", masculino: "1IyBjyl3xLtBfpP_yvy81mwoP4dMrkKGApvtqNQh2CrY" } },
+            9: { anterior: { femenino: "1Z832_hxFkpnFrkWVNkWEWvYVJD8E5kt-1oSiF4qQVcc", masculino: "14F1IeqlpXdihXewy_vSzNh1NACbv7OX5VbyN1hx7lUU" }, actual: { femenino: "1skXuXkoipQ_uaDVPFzbkJ4JCvPI3OI0jj0ERb92Etvk", masculino: "11g5JQCehypNgsOJnEfMdjN6RYajXUUJwdCjWyZVax5k" } },
+            10: { anterior: { femenino: "1DPPi8LxrIyPGaiJCSv5jxim3O4bYecUm61acZxfgif0", masculino: "1bKwzyXyvn-GCn3140-56uNrCd7U7l6V_vyj3o8ErmvU" }, actual: { femenino: "10vNogKQnxPVR7QG7PzoIWA8a9cLRvjCA5_dKahxypl4", masculino: "1kn4oEUHwr9_Ezn7-OLTB1UxBrJi-tbsQsC8Xx8pXNPw" } },
+            11: { anterior: { femenino: "10_huEfNbcExCorzbss9v79QMrBOpc8O5e_N8dJ8qXCI", masculino: "1nCtHokQgMp-HbzIPXg1lxtovczl5wwxm4Aqo52JhAPM" }, actual: { femenino: "1iAwJ8MXNMaDMkZPQgPFiO1_-aoB-LFCKVqMMGoIn_ig", masculino: "1U-ahlm0ERPX9ORC2DqE1Hh5l6oII3vvWbazy15zP6V0" } }
+        };
+
+        // Objetos "de trabajo" que usa el resto de la app. Empiezan como copia del respaldo
+        // y se sobrescriben/extienden con lo que venga de la hoja de configuración (si existe).
+        let configs = JSON.parse(JSON.stringify(configsDefault));
+        let mapaRankingAnual = JSON.parse(JSON.stringify(mapaRankingAnualDefault));
+        let dbMeses = JSON.parse(JSON.stringify(dbMesesDefault));
+
+        let generoActual = "femenino";
+        let nadadoresMap = new Map();
+        let nadadoresPrevMap = new Map();
+        let listaTorneosIndice = [];
+        let mapasMinimasTorneos = {};
+        let nadadorActualCache = null;
+
+        // Se incrementa cada vez que se selecciona un nadador (seleccionarNadador). Las
+        // cadenas asíncronas que dependen de la selección (historial de 12 meses, proyección
+        // a largo plazo) capturan su valor al iniciar y lo comparan al terminar: si ya cambió,
+        // significa que el usuario seleccionó otro nadador mientras la petición estaba en
+        // vuelo, así que la respuesta se descarta en vez de pintarse sobre el nadador nuevo.
+        let tokenSeleccionActual = 0;
+        let myChart = null;
+        let progressionChartInstance = null;
+        let projectionChartInstance = null;
+        let ultimosMesesCache = null;
+        let ultimosResultadosCache = null;
+
+        // Variable para almacenar el estado interactivo de la proyección a largo plazo
+        let estadoProyeccion = {
+            anios: [], edadesCol: [], marcasRealesStrs: [], marcasRealesSegs: [], 
+            baseIdx: -1, porcentajes: [], pruebaSel: ""
+        };
+
+        // =====================================================================================
+        // CARGA DE LA HOJA DE CONFIGURACIÓN
+        // -------------------------------------------------------------------------------------
+        // Estructura esperada de la hoja (crear 3 pestañas en el spreadsheet CONFIG_SHEET_ID):
+        //
+        // Pestaña "Principal" (A2:D3) — reemplaza el objeto "configs":
+        //   A: genero ("femenino"/"masculino")  B: id hoja actual  C: nombre pestaña  D: prevId
+        //
+        // Pestaña "Meses" (A2:D) — reemplaza el objeto "dbMeses". Una fila por cada
+        // combinación mes/tipo/género (12 meses x 2 tipos x 2 géneros = 48 filas):
+        //   A: mesIndex (0=Enero...11=Diciembre)  B: tipo ("anterior"/"actual")
+        //   C: genero ("femenino"/"masculino")     D: sheetId
+        //
+        // Pestaña "RankingAnual" (A2:C) — reemplaza el objeto "mapaRankingAnual". Una fila
+        // por año/género; para agregar un año nuevo solo se agrega una fila, sin tocar código:
+        //   A: anio (ej. 2027)  B: genero ("femenino"/"masculino")  C: sheetId
+        //
+        // Pestaña "Otros" (A2:B3) — reemplaza los IDs de las hojas "sueltas" (proyección e
+        // índice de mínimas). Una fila por clave:
+        //   A: clave ("proyeccion" / "indiceminimas")  B: sheetId
+        //
+        // Si CONFIG_SHEET_ID no está configurado, o alguna pestaña falla/está vacía, esa
+        // parte de la configuración se queda con los valores de respaldo (*Default).
+        // =====================================================================================
+
+        function cargarConfiguracion() {
+            if (!CONFIG_SHEET_ID || CONFIG_SHEET_ID === "PON_AQUI_EL_ID_DE_TU_HOJA_DE_CONFIGURACION") {
+                console.warn("CONFIG_SHEET_ID no configurado: usando valores de respaldo (*Default).");
+                return Promise.resolve();
+            }
+            return Promise.all([
+                cargarConfigPrincipal(),
+                cargarConfigMeses(),
+                cargarConfigRankingAnual(),
+                cargarConfigOtros()
+            ]);
+        }
+
+        // =====================================================================================
+        // UTILIDADES DE CARGA CON MANEJO DE ERRORES
+        // -------------------------------------------------------------------------------------
+        // Antes, cada función que leía una hoja de Google Sheets vía JSONP repetía su propio
+        // <script>/callback/timeout (o directamente no tenía timeout ni manejo de error, y si
+        // la hoja fallaba, la promesa nunca se resolvía y la UI se quedaba colgada para siempre).
+        //
+        // cargarJSONP() centraliza eso: agrega el "?tqx=responseHandler:..." al final de la URL,
+        // limpia el <script> inyectado, y SIEMPRE resuelve la promesa (con el JSON, o con null
+        // si hubo timeout/error), para que el código que la llama pueda decidir qué hacer.
+        // =====================================================================================
+
+        // Un solo intento de carga JSONP (la implementación que ya tenías).
+        function intentarCargaJSONP(baseUrl, timeoutMs) {
+            return new Promise((resolve) => {
+                const script = document.createElement("script");
+                const cbName = `jsonp_${Math.random().toString(36).substring(2)}_${Date.now()}`;
+                let resuelto = false;
+
+                function limpiar() {
+                    delete window[cbName];
+                    if (script.parentNode) script.parentNode.removeChild(script);
+                    clearTimeout(timeoutId);
+                }
+
+                const timeoutId = setTimeout(() => {
+                    if (resuelto) return;
+                    resuelto = true;
+                    console.warn(`[cargarJSONP] Tiempo de espera agotado (${timeoutMs}ms): ${baseUrl}`);
+                    limpiar();
+                    resolve(null);
+                }, timeoutMs);
+
+                window[cbName] = function(json) {
+                    if (resuelto) return;
+                    resuelto = true;
+                    limpiar();
+                    resolve(json);
+                };
+
+                script.onerror = () => {
+                    if (resuelto) return;
+                    resuelto = true;
+                    console.warn(`[cargarJSONP] Error de red al cargar: ${baseUrl}`);
+                    limpiar();
+                    resolve(null);
+                };
+
+                script.src = `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}tqx=responseHandler:${cbName}`;
+                document.body.appendChild(script);
+            });
+        }
+
+        // cargarJSONP ahora reintenta UNA vez automáticamente si el primer intento falla
+        // (timeout o error de red). Esto cubre fallos transitorios (un hipo de red, una
+        // respuesta lenta puntual). Si la causa es de fondo (hoja no pública, pestaña con
+        // nombre incorrecto, etc.) el reintento también fallará y se seguirá viendo el
+        // warning — eso es intencional: no queremos ocultar un problema real de configuración.
+        async function cargarJSONP(baseUrl, timeoutMs = 8000) {
+            let resultado = await intentarCargaJSONP(baseUrl, timeoutMs);
+            if (resultado) return resultado;
+
+            console.warn(`[cargarJSONP] Reintentando una vez: ${baseUrl}`);
+            resultado = await intentarCargaJSONP(baseUrl, timeoutMs);
+            if (!resultado) {
+                console.warn(`[cargarJSONP] Falló también el reintento. Si esto persiste, probablemente NO sea un problema de red: abre esta URL directamente en el navegador para ver el error real de Google Sheets → ${baseUrl}`);
+            }
+            return resultado;
+        }
+
+        // Banner rojo visible arriba de la página para avisar al usuario (no solo a la consola)
+        // cuando una carga crítica falla de verdad (timeout o error de red).
+        let avisoErrorTimeoutId = null;
+        function mostrarAvisoCargaFallida(mensaje) {
+            const el = document.getElementById("avisoError");
+            if (!el) { console.warn(mensaje); return; }
+            el.textContent = `⚠️ ${mensaje}`;
+            el.style.display = "block";
+            clearTimeout(avisoErrorTimeoutId);
+            avisoErrorTimeoutId = setTimeout(() => { el.style.display = "none"; }, 9000);
+        }
+
+        // Ejecuta "tareaPorItem" para cada elemento de "items", pero como máximo "limite" en
+        // paralelo a la vez. Antes, ráfagas como las 13 peticiones del historial mensual o las
+        // 11 del ranking anual salían TODAS al mismo instante; esto las reparte en oleadas para
+        // no golpear a Google Sheets con demasiadas peticiones simultáneas de un solo usuario.
+        async function conConcurrenciaLimitada(items, limite, tareaPorItem) {
+            let resultados = new Array(items.length);
+            let indice = 0;
+            async function trabajador() {
+                while (indice < items.length) {
+                    let miIndice = indice++;
+                    resultados[miIndice] = await tareaPorItem(items[miIndice], miIndice);
+                }
+            }
+            let trabajadores = [];
+            for (let i = 0; i < Math.min(limite, items.length); i++) trabajadores.push(trabajador());
+            await Promise.all(trabajadores);
+            return resultados;
+        }
+
+        function fetchConfigTab(sheetName, range, procesarFila) {
+            const url = `https://docs.google.com/spreadsheets/d/${CONFIG_SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&range=${range}`;
+            return cargarJSONP(url).then((json) => {
+                if (!json) {
+                    console.warn(`Config "${sheetName}": no se pudo cargar, se usa respaldo.`);
+                    return;
+                }
+                try {
+                    if (json.table && json.table.rows) {
+                        json.table.rows.forEach(row => {
+                            if (row.c) procesarFila(row.c);
+                        });
+                    }
+                } catch (e) {
+                    console.warn(`Config "${sheetName}": error al procesar filas, se usa respaldo parcial.`, e);
+                }
+            });
+        }
+
+        function cargarConfigPrincipal() {
+            return fetchConfigTab("Principal", "A2:D3", (c) => {
+                let genero = c[0] && c[0].v ? String(c[0].v).trim().toLowerCase() : "";
+                let id = c[1] && c[1].v ? String(c[1].v).trim() : "";
+                let sheet = c[2] && c[2].v ? String(c[2].v).trim() : "Filteru";
+                let prevId = c[3] && c[3].v ? String(c[3].v).trim() : "";
+                if (genero && id) {
+                    configs[genero] = { id, sheet, prevId };
+                }
+            });
+        }
+
+        function cargarConfigMeses() {
+            return fetchConfigTab("Meses", "A2:D49", (c) => {
+                let mesIndex = c[0] && c[0].v !== null ? parseInt(c[0].v) : NaN;
+                let tipo = c[1] && c[1].v ? String(c[1].v).trim().toLowerCase() : "";
+                let genero = c[2] && c[2].v ? String(c[2].v).trim().toLowerCase() : "";
+                let sheetId = c[3] && c[3].v ? String(c[3].v).trim() : "";
+                if (!isNaN(mesIndex) && (tipo === "anterior" || tipo === "actual") && genero && sheetId) {
+                    if (!dbMeses[mesIndex]) dbMeses[mesIndex] = { anterior: {}, actual: {} };
+                    dbMeses[mesIndex][tipo][genero] = sheetId;
+                }
+            });
+        }
+
+        function cargarConfigRankingAnual() {
+            return fetchConfigTab("RankingAnual", "A2:C200", (c) => {
+                let anio = c[0] && c[0].v !== null ? parseInt(c[0].v) : NaN;
+                let genero = c[1] && c[1].v ? String(c[1].v).trim().toLowerCase() : "";
+                let sheetId = c[2] && c[2].v ? String(c[2].v).trim() : "";
+                if (!isNaN(anio) && genero && sheetId) {
+                    if (!mapaRankingAnual[anio]) mapaRankingAnual[anio] = {};
+                    mapaRankingAnual[anio][genero] = sheetId;
+                }
+            });
+        }
+
+        function cargarConfigOtros() {
+            return fetchConfigTab("Otros", "A2:B10", (c) => {
+                let clave = c[0] && c[0].v ? String(c[0].v).trim().toLowerCase() : "";
+                let sheetId = c[1] && c[1].v ? String(c[1].v).trim() : "";
+                if (!clave || !sheetId) return;
+                if (clave === "proyeccion") idHojaProyeccionActual = sheetId;
+                else if (clave === "indiceminimas" || clave === "indice_minimas" || clave === "indice") idIndiceMinimasActual = sheetId;
+            });
+        }
+
+        // Cargar Porcentajes de Proyección iniciales
+        function cargarPorcentajesProyeccion() {
+            const urlHojaProyeccion = `https://docs.google.com/spreadsheets/d/${idHojaProyeccionActual}/gviz/tq?sheet=Proyección&range=A1:C100&headers=0`;
+            return cargarJSONP(urlHojaProyeccion).then((json) => {
+                if (!json) {
+                    console.warn("No se pudieron cargar los % de proyección; se usará 0% donde falten datos.");
+                    console.warn("Causas más probables: (1) la hoja no está compartida como 'Cualquier persona con el enlace puede ver', o (2) no existe una pestaña llamada exactamente 'Proyección'. Prueba abriendo esto directamente en el navegador para ver el error real:");
+                    console.warn(urlHojaProyeccion);
+                    return;
+                }
+                if (json.table && json.table.rows) {
+                    json.table.rows.forEach(row => {
+                        if (row.c && row.c[0] && row.c[0].v !== null) {
+                            let edad = parseInt(row.c[0].v);
+                            let pctFem = row.c[1] && row.c[1].v !== null ? parseFloat(row.c[1].v) : 0;
+                            let pctMasc = row.c[2] && row.c[2].v !== null ? parseFloat(row.c[2].v) : 0;
+                            cachePorcentajesProyeccion[edad] = { femenino: pctFem, masculino: pctMasc };
+                        }
+                    });
+                }
+            });
+        }
+
+        // Cargar Índice de Mínimas desde Google Sheets (A2:G26) ajustando la columna G para Categorías Convocadas
+        function cargarIndiceMinimas() {
+            const url = `https://docs.google.com/spreadsheets/d/${idIndiceMinimasActual}/gviz/tq?sheet=Indice&range=A2:G26`;
+            return cargarJSONP(url).then((json) => {
+                listaTorneosIndice = [];
+                if (json && json.table && json.table.rows) {
+                    json.table.rows.forEach((row, idx) => {
+                        if (row.c && row.c[0] && row.c[0].v !== null) {
+                            let nombreTorneo = String(row.c[0].v).trim();
+                            let sedeAnio = row.c[1] && row.c[1].v !== null ? String(row.c[1].v).trim() : "";
+                            let fechaTorneo = row.c[2] && (row.c[2].f || row.c[2].v !== null) ? String(row.c[2].f || row.c[2].v).trim() : "";
+                            let fechaInicio = row.c[3] && (row.c[3].f || row.c[3].v !== null) ? String(row.c[3].f || row.c[3].v).trim() : "";
+                            let fechaCierre = row.c[4] && (row.c[4].f || row.c[4].v !== null) ? String(row.c[4].f || row.c[4].v).trim() : "";
+                            let enlace = row.c[5] && row.c[5].v !== null ? String(row.c[5].v).trim() : "";
+                            let categoriasConvocadas = row.c[6] && row.c[6].v !== null ? String(row.c[6].v).trim() : "";
+
+                            listaTorneosIndice.push({
+                                index: idx,
+                                nombre: nombreTorneo,
+                                sedeAnio: sedeAnio,
+                                fechaTorneo: fechaTorneo,
+                                fechaInicio: fechaInicio,
+                                fechaCierre: fechaCierre,
+                                categoriasConvocadas: categoriasConvocadas,
+                                enlace: enlace
+                            });
+                        }
+                    });
+                } else {
+                    console.warn("No se pudo cargar el índice de torneos/mínimas.");
+                    mostrarAvisoCargaFallida("No se pudo cargar el índice de torneos y marcas mínimas. Verifica tu conexión e intenta recargar la página.");
+                }
+                poblarSelectTorneos();
+                return cargarTablasMinimasTorneos();
+            });
+        }
+
+        function poblarSelectTorneos() {
+            const select = document.getElementById("selectTorneoMinimas");
+            if (!select) return;
+            select.innerHTML = "";
+            if (listaTorneosIndice.length === 0) {
+                let opt = document.createElement("option");
+                opt.textContent = "No hay torneos disponibles";
+                select.appendChild(opt);
+                return;
+            }
+            listaTorneosIndice.forEach(t => {
+                let opt = document.createElement("option");
+                opt.value = t.index;
+                opt.textContent = t.nombre;
+                select.appendChild(opt);
+            });
+        }
+
+        function extraerInfoEnlace(urlF) {
+            if (!urlF) return { id: idIndiceMinimasActual, sheet: null };
+            let str = String(urlF).trim();
+            let matchId = str.match(/\/d\/([a-zA-Z0-9-_]+)/);
+            let spreadsheetId = matchId ? matchId[1] : idIndiceMinimasActual;
+            try {
+                let urlObj = new URL(str);
+                let sheetParam = urlObj.searchParams.get("sheet");
+                if (sheetParam) return { id: spreadsheetId, sheet: sheetParam };
+            } catch(e) {}
+            let sheetName = !str.startsWith("http") ? str : null;
+            return { id: spreadsheetId, sheet: sheetName };
+        }
+
+        function cargarTablasMinimasTorneos() {
+            let fallos = 0;
+            return conConcurrenciaLimitada(listaTorneosIndice, 4, (t) => {
+                let info = extraerInfoEnlace(t.enlace);
+                let sheetName = info.sheet || t.nombre;
+                let url = `https://docs.google.com/spreadsheets/d/${info.id}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&range=A2:W`;
+
+                return cargarJSONP(url).then((json) => {
+                    if (!json) {
+                        fallos++;
+                        console.warn(`No se pudo cargar la tabla de mínimas del torneo "${t.nombre}".`);
+                        return;
+                    }
+                    mapasMinimasTorneos[t.index] = parsearTablaMinimasJson(json, t.nombre);
+                });
+            }).then(() => {
+                if (listaTorneosIndice.length > 0 && fallos === listaTorneosIndice.length) {
+                    mostrarAvisoCargaFallida("No se pudieron cargar las marcas mínimas de ningún torneo. Verifica tu conexión e intenta recargar la página.");
+                }
+                if (nadadorActualCache) {
+                    procesarPanelMMIC(nadadorActualCache);
+                }
+            });
+        }
+
+        // Registro de qué hojas ya generaron el aviso de estructura en esta sesión, para no
+        // llenar la consola con el mismo warning fila por fila.
+        let hojasConAvisoEstructura = new Set();
+
+        // Los parsers de abajo leen las hojas de Sheets por POSICIÓN de columna fija (ej.
+        // "el tiempo está en la columna E"). Si alguien inserta, borra o reordena una columna
+        // en la hoja de origen, la lectura no truena, pero empieza a devolver datos vacíos o
+        // desalineados sin ningún aviso visible. Esta función deja constancia clara en consola
+        // (una sola vez por hoja) cuando una fila trae menos columnas de las esperadas, para
+        // que ese tipo de problema se detecte rápido en vez de parecer "no cargó nada".
+        function advertirSiEstructuraInesperada(nombreHoja, row, minColumnas) {
+            if (hojasConAvisoEstructura.has(nombreHoja)) return;
+            let columnas = row && row.c ? row.c.length : 0;
+            if (columnas < minColumnas) {
+                hojasConAvisoEstructura.add(nombreHoja);
+                console.warn(`[Estructura] "${nombreHoja}" trae ${columnas} columna(s) en su primera fila de datos, pero se esperaban al menos ${minColumnas}. ¿Se insertó, eliminó o reordenó alguna columna en Sheets? Es posible que falten datos o aparezcan en el campo equivocado.`);
+            }
+        }
+
+        function parsearTablaMinimasJson(json, nombreTorneo) {
+            let map = new Map();
+            if (json && json.table && json.table.rows) {
+                let primeraFila = true;
+                json.table.rows.forEach(row => {
+                    if (row.c) {
+                        if (primeraFila) {
+                            advertirSiEstructuraInesperada(`Mínimas: ${nombreTorneo || "torneo"}`, row, 22);
+                            primeraFila = false;
+                        }
+                        let categoria = row.c[1] && row.c[1].v !== null ? String(row.c[1].v).trim().toUpperCase() : "";
+                        let genero = row.c[2] && row.c[2].v !== null ? String(row.c[2].v).trim().toUpperCase() : "";
+                        let edadRaw = row.c[3] && row.c[3].v !== null ? String(row.c[3].v).trim().toUpperCase() : "";
+                        let edadNum = edadRaw.replace(/\D/g, "");
+
+                        let fechaInicio = "";
+                        if (row.c.length > 22 && row.c[22]) {
+                            fechaInicio = String(row.c[22].f || row.c[22].v || "").trim();
+                        }
+
+                        let pruebasMap = {};
+                        listaPruebas17.forEach((p, idx) => {
+                            let cell = row.c[idx + 5];
+                            let tVal = limpiarTiempo(cell);
+                            if (tVal) {
+                                pruebasMap[p] = {
+                                    tiempoStr: tVal,
+                                    segundos: tiempoASegundos(tVal)
+                                };
+                            }
+                        });
+
+                        let keyCatEdad = `${genero}_${categoria}_${edadNum}`;
+                        let keyCatSolo = `${genero}_${categoria}`;
+
+                        map.set(keyCatEdad, { categoria, genero, edad: edadNum, fechaInicio, pruebas: pruebasMap });
+                        if (!map.has(keyCatSolo)) {
+                            map.set(keyCatSolo, { categoria, genero, edad: edadNum, fechaInicio, pruebas: pruebasMap });
+                        }
+                    }
+                });
+            }
+            return map;
+        }
+
+        function onCambioTorneoMinimas() {
+            if (nadadorActualCache) {
+                procesarPanelMMIC(nadadorActualCache);
+            }
+        }
+
+        function cargarDatos(genero) {
+            const conf = configs[genero];
+            const inputElement = document.getElementById("buscadorNadador");
+            const urlActual = `https://docs.google.com/spreadsheets/d/${conf.id}/gviz/tq?sheet=${conf.sheet}&range=A2:N`;
+            const urlPrev = `https://docs.google.com/spreadsheets/d/${conf.prevId}/gviz/tq?sheet=${conf.sheet}&range=A2:N`;
+
+            // Hoja principal (temporada actual): si falla, es crítico — sin esto no hay
+            // buscador funcional, así que avisamos claramente en vez de dejarlo cargando para siempre.
+            const pActual = cargarJSONP(urlActual).then((json) => {
+                if (json) {
+                    procesarDatosGenericos(json, genero, false);
+                } else {
+                    console.warn(`No se pudieron cargar los datos de nadadores (${genero}).`);
+                    if (genero === generoActual) {
+                        inputElement.placeholder = "Error al cargar datos. Intenta recargar la página.";
+                    }
+                    mostrarAvisoCargaFallida(`No se pudieron cargar los datos de nadadores (${genero}). Verifica tu conexión e intenta recargar la página.`);
+                }
+            });
+
+            // Hoja de temporada anterior: complementaria (se usa para la fila "MMP" del
+            // historial), así que si falla no bloqueamos la interfaz, solo lo registramos.
+            const pPrev = cargarJSONP(urlPrev).then((json) => {
+                if (json) {
+                    procesarDatosGenericos(json, genero, true);
+                } else {
+                    console.warn(`No se pudieron cargar los datos de temporada anterior (${genero}).`);
+                }
+            });
+
+            return Promise.all([pActual, pPrev]);
+        }
+
+        function formatearNombrePrueba(textoPrueba) {
+            if (!textoPrueba) return "";
+            let upper = textoPrueba.toUpperCase();
+            let matchDistancia = upper.match(/\d+/);
+            let distancia = matchDistancia ? matchDistancia[0] : "";
+
+            let inicialEstilo = "";
+            if (upper.includes("LIBRE") || upper.includes("FREE")) {
+                inicialEstilo = "L";
+            } else if (upper.includes("ESPALDA") || upper.includes("BACK")) {
+                inicialEstilo = "E";
+            } else if (upper.includes("PECHO") || upper.includes("BREAST")) {
+                inicialEstilo = "P";
+            } else if (upper.includes("MARIPOSA") || upper.includes("FLY")) {
+                inicialEstilo = "M";
+            } else if (upper.includes("COMBINADO") || upper.includes("CI") || upper.includes("MEDLEY") || upper.includes("IND")) {
+                inicialEstilo = "CI";
+            }
+
+            return distancia && inicialEstilo ? distancia + inicialEstilo : textoPrueba;
+        }
+
+        // Sanea texto antes de insertarlo con innerHTML. Los datos de las hojas de Google
+        // Sheets (nombres, fechas, tiempos, categorías, sedes, etc.) son "externos": aunque
+        // hoy tú controlas esas hojas, si algún día una celda tuviera contenido malicioso
+        // (por error o por un tercero con acceso de edición), esto evita que se interprete
+        // como HTML/JS al mostrarse. Úsala en cualquier interpolación dentro de innerHTML
+        // que venga de una celda de Sheets; no hace falta para texto generado por el propio
+        // código (etiquetas fijas, números calculados, etc.).
+        function escapeHtml(valor) {
+            if (valor === null || valor === undefined) return "";
+            return String(valor)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
+
+        function limpiarTiempo(cell) {
+            if (!cell) return "";
+            let val = "";
+            if (typeof cell === 'object') {
+                val = (cell.f !== undefined && cell.f !== null) ? String(cell.f) : ((cell.v !== undefined && cell.v !== null) ? String(cell.v) : "");
+            } else {
+                val = String(cell);
+            }
+            val = val.trim();
+            if (!val) return "";
+            if (val.length > 8) {
+                val = val.slice(-8);
+            }
+            return val;
+        }
+
+        function tiempoASegundos(str) {
+            if (!str) return null;
+            str = String(str).trim();
+            if (!str || str === "-") return null;
+            let parts = str.split(':');
+            if (parts.length === 2) {
+                let min = parseFloat(parts[0]) || 0;
+                let sec = parseFloat(parts[1]) || 0;
+                return min * 60 + sec;
+            } else if (parts.length === 1) {
+                let val = parseFloat(parts[0]);
+                return isNaN(val) ? null : val;
+            }
+            return null;
+        }
+
+        function segundosATiempo(segs) {
+            if (segs === null || isNaN(segs)) return "";
+            let min = Math.floor(segs / 60);
+            let sec = segs % 60;
+            let secFormatted = sec.toFixed(2);
+            if (sec < 10 && min > 0) {
+                secFormatted = "0" + secFormatted;
+            }
+            return min > 0 ? `${min}:${secFormatted}` : secFormatted;
+        }
+
+        // =====================================================================================
+        // PARSEO FLEXIBLE DE FECHAS
+        // -------------------------------------------------------------------------------------
+        // Antes había dos funciones con supuestos de formato distintos e incompatibles entre
+        // sí (una esperaba DD/MM/AAAA, la otra exigía AAAA primero), así que una fecha con el
+        // formato "equivocado" para cada una simplemente no se reconocía y esa parte de la UI
+        // se quedaba en blanco sin avisar. parsearFechaFlexible() centraliza el reconocimiento
+        // e intenta, en orden, varios formatos habituales en las hojas de Google Sheets:
+        //   1) Formato crudo de celdas de tipo Fecha sin formatear: Date(2026,2,5)
+        //   2) ISO / año primero: 2026-03-05, 2026/03/05
+        //   3) Día-mes-año (convención latina): 05/03/2026, 05-03-2026
+        //   4) Día-mes-año con año de 2 dígitos: 05/03/26
+        //   5) Texto con mes en español: "5 de marzo de 2026", "5-mar-2026", "05 Mar 2026"
+        //   6) Último recurso: se lo pasamos al parser nativo de JS (cubre formatos en inglés,
+        //      con hora, etc.)
+        // Si ninguno reconoce el texto, devuelve null (antes devolvía una fecha inválida o 0
+        // silenciosamente).
+        // =====================================================================================
+
+        const NOMBRES_MES_ES = {
+            "ene": 0, "enero": 0,
+            "feb": 1, "febrero": 1,
+            "mar": 2, "marzo": 2,
+            "abr": 3, "abril": 3,
+            "may": 4, "mayo": 4,
+            "jun": 5, "junio": 5,
+            "jul": 6, "julio": 6,
+            "ago": 7, "agosto": 7,
+            "sep": 8, "sept": 8, "septiembre": 8,
+            "oct": 9, "octubre": 9,
+            "nov": 10, "noviembre": 10,
+            "dic": 11, "diciembre": 11
+        };
+
+        function parsearFechaFlexible(valor) {
+            if (valor === null || valor === undefined) return null;
+            let str = String(valor).trim();
+            if (!str || str === "-") return null;
+
+            // 1) Google Sheets: "Date(2026,2,5)" (mes ya en base 0)
+            let mCrudo = str.match(/Date\((\d{4}),\s*(\d{1,2}),\s*(\d{1,2})/);
+            if (mCrudo) {
+                let d = new Date(parseInt(mCrudo[1]), parseInt(mCrudo[2]), parseInt(mCrudo[3]));
+                if (!isNaN(d.getTime())) return d;
+            }
+
+            // 2) ISO / año primero: 2026-03-05, 2026/03/05
+            let mISO = str.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+            if (mISO) {
+                let d = new Date(parseInt(mISO[1]), parseInt(mISO[2]) - 1, parseInt(mISO[3]));
+                if (!isNaN(d.getTime())) return d;
+            }
+
+            // 3) Día-mes-año, año de 4 dígitos al final: 05/03/2026, 05-03-2026
+            let mDMY = str.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+            if (mDMY) {
+                let dd = parseInt(mDMY[1]), mm = parseInt(mDMY[2]), yyyy = parseInt(mDMY[3]);
+                // Si el supuesto "mes" no puede serlo (>12) pero el "día" sí, vienen invertidos
+                if (mm > 12 && dd <= 12) { [dd, mm] = [mm, dd]; }
+                let d = new Date(yyyy, mm - 1, dd);
+                if (!isNaN(d.getTime())) return d;
+            }
+
+            // 4) Día-mes-año, año de 2 dígitos: 05/03/26
+            let mDMY2 = str.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{2})(?!\d)/);
+            if (mDMY2) {
+                let dd = parseInt(mDMY2[1]), mm = parseInt(mDMY2[2]), yy = parseInt(mDMY2[3]);
+                if (mm > 12 && dd <= 12) { [dd, mm] = [mm, dd]; }
+                let yyyy = yy + (yy < 70 ? 2000 : 1900);
+                let d = new Date(yyyy, mm - 1, dd);
+                if (!isNaN(d.getTime())) return d;
+            }
+
+            // 5) Texto con nombre de mes en español: "5 de marzo de 2026", "5-mar-2026"
+            let strSinAcentos = str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            let mTexto = strSinAcentos.match(/(\d{1,2})\s*(?:de)?\s*[-\s]?([a-z]+)[-\s]?(?:de)?\s*(\d{4})/);
+            if (mTexto) {
+                let dd = parseInt(mTexto[1]);
+                let yyyy = parseInt(mTexto[3]);
+                let nombreMes = mTexto[2];
+                let mesIdx = NOMBRES_MES_ES[nombreMes] !== undefined ? NOMBRES_MES_ES[nombreMes] : NOMBRES_MES_ES[nombreMes.slice(0, 3)];
+                if (mesIdx !== undefined && !isNaN(dd) && !isNaN(yyyy)) {
+                    let d = new Date(yyyy, mesIdx, dd);
+                    if (!isNaN(d.getTime())) return d;
+                }
+            }
+
+            // 6) Último recurso: parser nativo (formatos en inglés, con hora, etc.)
+            let dNativo = new Date(str);
+            if (!isNaN(dNativo.getTime())) return dNativo;
+
+            return null;
+        }
+
+        function parsearFechaToTimestamp(fechaStr) {
+            let d = parsearFechaFlexible(fechaStr);
+            return d ? d.getTime() : 0;
+        }
+
+        // Encuentra todas las fechas reconocibles dentro de un texto libre (p. ej. un rango
+        // "05/03/2026 al 08/03/2026" o "5 al 8 de marzo de 2026"), en el orden en que aparecen.
+        function extraerFechasDeTexto(str) {
+            if (!str) return [];
+            // Los patrones se procesan en orden de PRIORIDAD (más específico y confiable
+            // primero: fecha cruda de Sheets > ISO > DMY con año de 4 dígitos > DMY con año
+            // de 2 dígitos > texto). Si un patrón de menor prioridad matchea un fragmento que
+            // se solapa con una fecha ya aceptada (por ejemplo, el patrón de año de 2 dígitos
+            // "mordiendo" los últimos caracteres de una fecha ISO ya reconocida, como pasaría
+            // con "26-03-05" dentro de "2026-03-05"), ese match se descarta para no inventar
+            // una fecha falsa.
+            let patrones = [
+                /Date\(\d{4},\s*\d{1,2},\s*\d{1,2}\)/g,
+                /\d{4}[-/]\d{1,2}[-/]\d{1,2}/g,
+                /\d{1,2}[-/]\d{1,2}[-/]\d{4}/g,
+                /\d{1,2}[-/]\d{1,2}[-/]\d{2}(?!\d)/g,
+                /\d{1,2}\s*(?:de)?\s*[-\s]?[a-záéíóúA-ZÁÉÍÓÚ]+[-\s]?(?:de)?\s*\d{4}/g
+            ];
+
+            let rangosOcupados = [];
+            function seSolapaConAceptado(inicio, fin) {
+                return rangosOcupados.some(r => inicio < r.fin && fin > r.inicio);
+            }
+
+            let aceptados = [];
+            patrones.forEach(rx => {
+                let m;
+                while ((m = rx.exec(str)) !== null) {
+                    let inicio = m.index, fin = m.index + m[0].length;
+                    if (!seSolapaConAceptado(inicio, fin)) {
+                        rangosOcupados.push({ inicio, fin });
+                        aceptados.push({ index: inicio, texto: m[0] });
+                    }
+                }
+            });
+            aceptados.sort((a, b) => a.index - b.index);
+
+            let fechas = aceptados.map(e => parsearFechaFlexible(e.texto)).filter(d => d !== null);
+
+            // Caso especial en español: rango dentro de un mismo mes con el día inicial
+            // "pelado", p. ej. "5 al 8 de marzo de 2026" (el "5" no lleva mes propio, comparte
+            // el de "8 de marzo"). Si solo se reconoció una fecha completa y justo antes de
+            // ella hay un número suelto seguido de "al"/"a"/"-", se asume que ese número es el
+            // día de inicio dentro del mismo mes/año.
+            if (fechas.length === 1 && aceptados.length === 1) {
+                let textoAntes = str.slice(0, aceptados[0].index);
+                let mDiaSuelto = textoAntes.match(/(\d{1,2})\s*(?:al|a|-|–|—)\s*$/i);
+                if (mDiaSuelto) {
+                    let diaInicio = parseInt(mDiaSuelto[1]);
+                    let fechaBase = fechas[0];
+                    if (diaInicio >= 1 && diaInicio <= 31) {
+                        let fechaInicio = new Date(fechaBase.getFullYear(), fechaBase.getMonth(), diaInicio);
+                        if (!isNaN(fechaInicio.getTime())) {
+                            fechas = [fechaInicio, fechaBase];
+                        }
+                    }
+                }
+            }
+
+            return fechas;
+        }
+
+        function parsearRangoFechasTorneo(fechaStr) {
+            if (!fechaStr) return { start: null, end: null };
+            let fechas = extraerFechasDeTexto(String(fechaStr));
+            if (fechas.length === 0) return { start: null, end: null };
+            let start = fechas[0];
+            let end = fechas.length > 1 ? fechas[1] : fechas[0];
+            return { start, end };
+        }
+
+        function obtenerEstadoFechaTorneo(fechaStr) {
+            let { start, end } = parsearRangoFechasTorneo(fechaStr);
+            if (!start || !end) return "";
+            let now = new Date();
+            now.setHours(0, 0, 0, 0);
+            start.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
+
+            if (now > end) return " (Finalizado)";
+            else if (now >= start && now <= end) return " (En desarrollo)";
+            else {
+                let diffTime = start - now;
+                let diffWeeks = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
+                if (diffWeeks <= 0) diffWeeks = 1;
+                return ` (Faltan ${diffWeeks} ${diffWeeks === 1 ? 'semana' : 'semanas'})`;
+            }
+        }
+
+        function obtenerEstadoPeriodoClasificacion(fechaInicioStr, fechaCierreStr) {
+            let tsStart = parsearFechaToTimestamp(fechaInicioStr);
+            let tsEnd = parsearFechaToTimestamp(fechaCierreStr);
+            if (!tsStart || !tsEnd) return "";
+
+            let now = new Date();
+            now.setHours(0, 0, 0, 0);
+            let tsNow = now.getTime();
+
+            if (tsNow < tsStart) return " (Aún no inicia)";
+            else if (tsNow > tsEnd) return " (Finalizado)";
+            else return " (Activo)";
+        }
+
+        function procesarDatosGenericos(json, genero, esPrevio = false) {
+            let mapaTemp = new Map();
+            if (json && json.table && json.table.rows) {
+                let primeraFila = true;
+                json.table.rows.forEach(row => {
+                    if (row.c && row.c[2] && row.c[2].v) {
+                        if (primeraFila) {
+                            advertirSiEstructuraInesperada(`Nadadores (${genero}${esPrevio ? ", temporada anterior" : ""})`, row, 13);
+                            primeraFila = false;
+                        }
+                        let nombre = row.c[2].v.trim();
+                        let rawPrueba = (row.c[1] && row.c[1].v !== null) ? row.c[1].v : "";
+                        let pruebaFormateada = formatearNombrePrueba(rawPrueba);
+                        let ranking = (row.c[0] && row.c[0].v !== null) ? row.c[0].v : "-";
+                        let rawTiempo = (row.c[4] && row.c[4] !== null) ? row.c[4] : "";
+                        let tiempo = limpiarTiempo(rawTiempo);
+                        let puntosWA = (row.c[5] && row.c[5].v !== null) ? parseFloat(row.c[5].v) || 0 : 0;
+                        let fechaTorneo = (row.c[6] && (row.c[6].f || row.c[6].v !== null)) ? String(row.c[6].f || row.c[6].v) : "";
+                        let liga = (row.c.length > 7 && row.c[7] && row.c[7].v !== null) ? String(row.c[7].v).trim() : "";
+                        let club = (row.c.length > 8 && row.c[8] && row.c[8].v !== null) ? String(row.c[8].v).trim() : "";
+                        let categoria = (row.c.length > 11 && row.c[11] && row.c[11].v !== null) ? String(row.c[11].v).trim() : "";
+                        let edad = (row.c.length > 12 && row.c[12] && row.c[12].v !== null) ? String(row.c[12].v).trim() : "";
+
+                        if (!mapaTemp.has(nombre)) {
+                            mapaTemp.set(nombre, { nombre, categoria, edad, liga, club, pruebas: [] });
+                        }
+                        mapaTemp.get(nombre).pruebas.push({ prueba: pruebaFormateada, tiempo, ranking, puntosWA, fechaTorneo });
+                    }
+                });
+            }
+
+            if (esPrevio) {
+                window[`nadadoresPrev_${genero}`] = mapaTemp;
+                if (genero === generoActual) nadadoresPrevMap = mapaTemp;
+            } else {
+                window[`nadadores_${genero}`] = mapaTemp;
+                if (genero === generoActual) {
+                    nadadoresMap = mapaTemp;
+                    activarInterfaz();
+                }
+            }
+        }
+
+        function activarInterfaz() {
+            const inputElement = document.getElementById("buscadorNadador");
+            inputElement.disabled = false;
+            inputElement.placeholder = "Nombre del deportista...";
+        }
+
+        function cambiarGenero(nuevoGenero) {
+            generoActual = nuevoGenero;
+            document.getElementById("btnFemenino").classList.toggle("active", nuevoGenero === "femenino");
+            document.getElementById("btnMasculino").classList.toggle("active", nuevoGenero === "masculino");
+
+            document.getElementById("panelRendimiento").style.display = "none";
+            document.getElementById("panelPruebas").style.display = "none";
+            document.getElementById("panelMMIC").style.display = "none";
+            document.getElementById("panelVersatilidad").style.display = "none";
+            document.getElementById("panelHistorial").style.display = "none";
+            document.getElementById("panelProgresion").style.display = "none";
+            document.getElementById("panelProyeccionLP").style.display = "none";
+            document.getElementById("buscadorNadador").value = "";
+            document.getElementById("listaSugerencias").style.display = "none";
+            document.getElementById("inputWrapper").classList.remove("open");
+
+            if (window[`nadadores_${nuevoGenero}`]) {
+                nadadoresMap = window[`nadadores_${nuevoGenero}`];
+                nadadoresPrevMap = window[`nadadoresPrev_${nuevoGenero}`] || new Map();
+                activarInterfaz();
+            } else {
+                nadadoresMap = new Map();
+                nadadoresPrevMap = new Map();
+                const inputElement = document.getElementById("buscadorNadador");
+                inputElement.disabled = true;
+                inputElement.placeholder = "Cargando datos...";
+
+                if (!promesasCargaGenero[nuevoGenero]) {
+                    promesasCargaGenero[nuevoGenero] = cargarDatos(nuevoGenero).finally(() => {
+                        delete promesasCargaGenero[nuevoGenero];
+                    });
+                }
+            }
+        }
+
+        const input = document.getElementById("buscadorNadador");
+        const listaSugerencias = document.getElementById("listaSugerencias");
+        const inputWrapper = document.getElementById("inputWrapper");
+
+        function mostrarLista(filtro) {
+            listaSugerencias.innerHTML = "";
+            let nombres = Array.from(nadadoresMap.keys());
+            if (filtro !== "") nombres = nombres.filter(n => n.toLowerCase().includes(filtro));
+
+            if (nombres.length === 0) {
+                listaSugerencias.style.display = "none";
+                inputWrapper.classList.remove("open");
+                return;
+            }
+
+            const LIMITE_SUGERENCIAS = 100;
+            nombres.slice(0, LIMITE_SUGERENCIAS).forEach(nombre => {
+                const itemDiv = document.createElement("div");
+                itemDiv.textContent = nombre;
+                itemDiv.addEventListener("click", function(e) {
+                    e.stopPropagation();
+                    seleccionarNadador(nadadoresMap.get(nombre));
+                });
+                listaSugerencias.appendChild(itemDiv);
+            });
+
+            // Si hay más coincidencias de las que se muestran, se avisa en vez de dejar
+            // la lista cortada en 100 sin ninguna indicación.
+            if (nombres.length > LIMITE_SUGERENCIAS) {
+                const avisoDiv = document.createElement("div");
+                avisoDiv.textContent = `... y ${nombres.length - LIMITE_SUGERENCIAS} más. Sigue escribiendo para acotar la búsqueda.`;
+                avisoDiv.style.cssText = "cursor: default; font-style: italic; font-weight: normal; color: #888; text-align: center;";
+                listaSugerencias.appendChild(avisoDiv);
+            }
+
+            listaSugerencias.style.display = "block";
+            inputWrapper.classList.add("open");
+        }
+
+        input.addEventListener("click", function(e) {
+            e.stopPropagation();
+            if (input.disabled) return;
+            mostrarLista(this.value.toLowerCase().trim());
+        });
+
+        // Pequeño debounce para el filtrado de sugerencias: si el usuario sigue escribiendo,
+        // se cancela el filtrado anterior y solo se ejecuta el más reciente. Con pocos cientos
+        // de nadadores no se nota, pero evita recalcular la lista en cada tecla si la base de
+        // nadadores llega a crecer bastante.
+        let debounceBusquedaTimeoutId = null;
+
+        input.addEventListener("input", function() {
+            const valor = this.value.toLowerCase().trim();
+            document.getElementById("panelRendimiento").style.display = "none";
+            document.getElementById("panelPruebas").style.display = "none";
+            document.getElementById("panelMMIC").style.display = "none";
+            document.getElementById("panelVersatilidad").style.display = "none";
+            document.getElementById("panelHistorial").style.display = "none";
+            document.getElementById("panelProgresion").style.display = "none";
+            document.getElementById("panelProyeccionLP").style.display = "none";
+
+            clearTimeout(debounceBusquedaTimeoutId);
+            debounceBusquedaTimeoutId = setTimeout(() => mostrarLista(valor), 150);
+        });
+
+        // Función genérica de colapsar/expandir paneles. Reemplaza las 6 funciones
+        // toggleX casi idénticas que había antes (toggleRanking, toggleMMIC,
+        // toggleVersatilidad, toggleHistorial, toggleProgresion, toggleProyeccionLP).
+        //
+        // panelId / iconId: ids del panel y del ícono +/-.
+        // obtenerChart (opcional): función que devuelve la instancia de Chart.js a
+        //   redimensionar cuando el panel se abre (algunos paneles no tienen gráfico).
+        function togglePanel(panelId, iconId, obtenerChart) {
+            const panel = document.getElementById(panelId);
+            const icon = document.getElementById(iconId);
+            panel.classList.toggle("open");
+            icon.textContent = panel.classList.contains("open") ? "-" : "+";
+
+            if (panel.classList.contains("open") && typeof obtenerChart === "function") {
+                const chart = obtenerChart();
+                if (chart) setTimeout(() => chart.resize(), 50);
+            }
+        }
+
+        function calcularMaxPuntosPorEstilo(pruebas) {
+            let maxLibre = 0, maxEspalda = 0, maxPecho = 0, maxMariposa = 0, maxCombinado = 0;
+            pruebas.forEach(p => {
+                let nombrePrueba = p.prueba.toUpperCase();
+                let puntos = p.puntosWA;
+                if (nombrePrueba.endsWith("L") && puntos > maxLibre) maxLibre = puntos;
+                else if (nombrePrueba.endsWith("E") && puntos > maxEspalda) maxEspalda = puntos;
+                else if (nombrePrueba.endsWith("P") && puntos > maxPecho) maxPecho = puntos;
+                else if (nombrePrueba.endsWith("M") && puntos > maxMariposa) maxMariposa = puntos;
+                else if (nombrePrueba.endsWith("CI") && puntos > maxCombinado) maxCombinado = puntos;
+            });
+            return [maxLibre, maxEspalda, maxPecho, maxMariposa, maxCombinado];
+        }
+
+        function updateChart(puntosEstilos) {
+            const ctx = document.getElementById('specialtyChart').getContext('2d');
+            if (myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['LIBRE', 'ESPALDA', 'PECHO', 'MARIPOSA', 'COMBINADO'],
+                    datasets: [{
+                        data: puntosEstilos,
+                        backgroundColor: 'rgba(146, 197, 252, 0.4)',
+                        borderColor: '#001f3f',
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            min: 0,
+                            ticks: { display: false },
+                            pointLabels: { font: { size: 12, weight: 'bold' } }
+                        }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function procesarPanelMMIC(datosNadador) {
+            nadadorActualCache = datosNadador;
+            const selectTorneo = document.getElementById("selectTorneoMinimas");
+            const selectedIdx = selectTorneo.value !== "" ? parseInt(selectTorneo.value) : 0;
+            const torneoInfo = listaTorneosIndice[selectedIdx];
+
+            if (torneoInfo) {
+                let estadoTorneo = obtenerEstadoFechaTorneo(torneoInfo.fechaTorneo);
+                let estadoPeriodo = obtenerEstadoPeriodoClasificacion(torneoInfo.fechaInicio, torneoInfo.fechaCierre);
+                document.getElementById("lineaSedeAnio").innerHTML = `Sede/Año: ${escapeHtml(torneoInfo.sedeAnio) || "-"}`;
+                document.getElementById("lineaFechaTorneo").innerHTML = `Fecha del Torneo: ${escapeHtml(torneoInfo.fechaTorneo) || "-"}${estadoTorneo}`;
+                document.getElementById("lineaPeriodoClasificacion").innerHTML = `Periodo de Clasificación: ${escapeHtml(torneoInfo.fechaInicio)} al ${escapeHtml(torneoInfo.fechaCierre)}${estadoPeriodo}`;
+                document.getElementById("lineaCategoriasConvocadas").innerHTML = `Categorías Convocadas: ${escapeHtml(torneoInfo.categoriasConvocadas) || "-"}`;
+            }
+
+            const mmicMap = mapasMinimasTorneos[selectedIdx];
+            const generoMMIC = generoActual === "femenino" ? "DAMAS" : "VARONES";
+            let catNadador = (datosNadador.categoria || "").trim().toUpperCase();
+            let edadNumNadador = String(datosNadador.edad || "").trim().replace(/\D/g, "");
+
+            let fechaInicioMMIC = torneoInfo ? torneoInfo.fechaInicio : "";
+            let fechaCierreMMIC = torneoInfo ? torneoInfo.fechaCierre : "";
+            let tsFechaInicioMMIC = parsearFechaToTimestamp(fechaInicioMMIC);
+            let tsFechaCierreMMIC = parsearFechaToTimestamp(fechaCierreMMIC);
+
+            let mmicRecord = null;
+            if (mmicMap) {
+                let keyExact = `${generoMMIC}_${catNadador}_${edadNumNadador}`;
+                let keyCat = `${generoMMIC}_${catNadador}`;
+                if (mmicMap.has(keyExact)) mmicRecord = mmicMap.get(keyExact);
+                else if (mmicMap.has(keyCat)) mmicRecord = mmicMap.get(keyCat);
+            }
+
+            const tbody = document.getElementById("tablaMMICBody");
+            const advertenciaEl = document.getElementById("advertenciaMinimas");
+            const contenedorTabla = document.getElementById("contenedorTablaMinimas");
+            tbody.innerHTML = "";
+
+            if (!mmicRecord || !mmicRecord.pruebas) {
+                advertenciaEl.style.display = "block";
+                contenedorTabla.style.display = "none";
+                document.getElementById("panelMMIC").style.display = "block";
+                return;
+            }
+
+            advertenciaEl.style.display = "none";
+            contenedorTabla.style.display = "block";
+
+            let filasAnalisis = [];
+            listaPruebas17.forEach(prueba => {
+                let mmicPruebaObj = mmicRecord.pruebas[prueba];
+                if (!mmicPruebaObj) return;
+
+                let mmicSec = mmicPruebaObj.segundos;
+
+                let bestTimePeriodo = null;
+                let bestTimeAntes = null;
+
+                if (datosNadador.pruebas) {
+                    datosNadador.pruebas.forEach(p => {
+                        if (p.prueba !== prueba) return;
+                        let tsFechaMarca = parsearFechaToTimestamp(p.fechaTorneo);
+                        let sTime = tiempoASegundos(p.tiempo);
+                        if (sTime === null || sTime <= 0) return;
+
+                        let dentroPeriodo = tsFechaInicioMMIC > 0 && tsFechaMarca >= tsFechaInicioMMIC && (tsFechaCierreMMIC === 0 || tsFechaMarca <= tsFechaCierreMMIC);
+                        let antesPeriodo = tsFechaInicioMMIC > 0 && tsFechaMarca < tsFechaInicioMMIC;
+
+                        if (tsFechaInicioMMIC === 0) {
+                            dentroPeriodo = true;
+                        }
+
+                        if (dentroPeriodo) {
+                            let curBest = bestTimePeriodo ? bestTimePeriodo.segundos : 999999;
+                            if (sTime < curBest) {
+                                bestTimePeriodo = { tiempo: p.tiempo, fecha: p.fechaTorneo, segundos: sTime };
+                            }
+                        } else if (antesPeriodo) {
+                            let curBest = bestTimeAntes ? bestTimeAntes.segundos : 999999;
+                            if (sTime < curBest) {
+                                bestTimeAntes = { tiempo: p.tiempo, fecha: p.fechaTorneo, segundos: sTime };
+                            }
+                        }
+                    });
+                }
+
+                let swimmerTimeStr = "-";
+                let swimmerFecha = "-";
+                let swimmerSec = null;
+                let estadoCumple = "";
+                let porcentajeAproximacion = 0;
+
+                if (bestTimePeriodo) {
+                    swimmerTimeStr = bestTimePeriodo.tiempo;
+                    swimmerFecha = bestTimePeriodo.fecha;
+                    swimmerSec = bestTimePeriodo.segundos;
+                    porcentajeAproximacion = (swimmerSec > 0 && mmicSec > 0) ? (mmicSec / swimmerSec) * 100 : 0;
+
+                    if (swimmerSec <= mmicSec) {
+                        estadoCumple = "cumple_periodo";
+                    } else {
+                        estadoCumple = "no_cumple_periodo";
+                    }
+                } else if (bestTimeAntes) {
+                    swimmerTimeStr = bestTimeAntes.tiempo;
+                    swimmerFecha = bestTimeAntes.fecha;
+                    swimmerSec = bestTimeAntes.segundos;
+                    porcentajeAproximacion = (swimmerSec > 0 && mmicSec > 0) ? (mmicSec / swimmerSec) * 100 : 0;
+
+                    if (swimmerSec <= mmicSec) {
+                        estadoCumple = "cumple_antes";
+                    } else {
+                        estadoCumple = "no_cumple_antes";
+                    }
+                } else {
+                    estadoCumple = "sin_tiempo";
+                }
+
+                filasAnalisis.push({
+                    prueba,
+                    swimmerTimeStr,
+                    swimmerFecha,
+                    mmicTimeStr: mmicPruebaObj.tiempoStr,
+                    porcentajeAproximacion,
+                    estadoCumple,
+                    swimmerSec,
+                    mmicSec
+                });
+            });
+
+            filasAnalisis.sort((a, b) => b.porcentajeAproximacion - a.porcentajeAproximacion);
+
+            let contadorCumple = 0;
+
+            filasAnalisis.forEach(item => {
+                let textoCumpleEval = "";
+                let bgColor = "#fefce8";
+
+                if (item.estadoCumple === "cumple_periodo") {
+                    contadorCumple++;
+                    textoCumpleEval = `${contadorCumple} ✅`;
+                    bgColor = "#d1e7dd";
+                } else if (item.estadoCumple === "no_cumple_periodo") {
+                    textoCumpleEval = "No ❎";
+                    bgColor = "#fefce8";
+                } else if (item.estadoCumple === "cumple_antes") {
+                    textoCumpleEval = "No válida ✅";
+                    bgColor = "#fff3cd";
+                } else if (item.estadoCumple === "no_cumple_antes") {
+                    textoCumpleEval = "No ❎";
+                    bgColor = "#fefce8";
+                } else {
+                    textoCumpleEval = "Sin Tiempo";
+                    bgColor = "#f8d7da";
+                }
+
+                let tr = document.createElement("tr");
+                tr.style.backgroundColor = bgColor;
+                tr.innerHTML = `
+                    <td><b>${escapeHtml(item.prueba)}</b></td>
+                    <td>${escapeHtml(item.swimmerTimeStr)}</td>
+                    <td>${escapeHtml(item.mmicTimeStr)}</td>
+                    <td>${escapeHtml(item.swimmerFecha)}</td>
+                    <td><b>${item.porcentajeAproximacion > 0 ? item.porcentajeAproximacion.toFixed(2) + '%' : "-"}</b></td>
+                    <td><b>${textoCumpleEval}</b></td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById("panelMMIC").style.display = "block";
+        }
+
+        // Carga (o reutiliza del caché) UNA hoja mensual de historial y la deja indexada
+        // por nadador: Map(nombreUpper -> {prueba: tiempoStr}). Esta hoja es la misma para
+        // cualquier nadador que se consulte ese mes, así que una vez cargada sirve para todos.
+        function obtenerHojaHistorialMes(mesIndex, tipo, genero) {
+            let key = `${mesIndex}_${tipo}_${genero}`;
+            if (cacheHojasHistorial[key]) return Promise.resolve(cacheHojasHistorial[key]);
+            if (promesasHojasHistorialEnCurso[key]) return promesasHojasHistorialEnCurso[key];
+
+            let sheetId = (dbMeses[mesIndex] && dbMeses[mesIndex][tipo]) ? dbMeses[mesIndex][tipo][genero] : null;
+
+            // Si no hay sheetId configurado para este mes (config incompleta), no
+            // intentamos pedir una URL rota — cacheamos un mapa vacío y seguimos.
+            if (!sheetId) {
+                cacheHojasHistorial[key] = new Map();
+                return Promise.resolve(cacheHojasHistorial[key]);
+            }
+
+            let url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?sheet=SORT&range=A2:N`;
+            let promesa = cargarJSONP(url).then((json) => {
+                delete promesasHojasHistorialEnCurso[key];
+                if (!json) {
+                    console.warn(`No se pudo cargar la hoja de historial del mes (${key}).`);
+                    cacheHojasHistorial[key] = new Map();
+                    return cacheHojasHistorial[key];
+                }
+                let mapaMes = parsearHojaHistorialMensual(json);
+                cacheHojasHistorial[key] = mapaMes;
+                return mapaMes;
+            });
+            promesasHojasHistorialEnCurso[key] = promesa;
+            return promesa;
+        }
+
+        // Recorre TODA la hoja una sola vez y arma un mapa nombre -> {prueba: tiempo} para
+        // TODOS los nadadores encontrados (antes se recorría la hoja completa buscando solo
+        // el nombre de un nadador puntual, y se repetía ese recorrido por cada selección).
+        // Usa la misma heurística de detección por celda que tenía el código original
+        // (nombre / prueba / tiempo se identifican por contenido, no por posición fija de
+        // columna), pero comparando contra el conjunto de nadadores conocidos en vez de un
+        // único nombre, para poder indexar la hoja completa en un solo recorrido.
+        function parsearHojaHistorialMensual(json) {
+            let mapaPorNadador = new Map();
+            if (!json || !json.table || !json.table.rows) return mapaPorNadador;
+
+            let nombresConocidos = new Set(Array.from(nadadoresMap.keys()).map(n => n.toLowerCase()));
+
+            json.table.rows.forEach(row => {
+                if (!row.c) return;
+                let nombreDetectado = "";
+                let pruebaDetectada = "";
+                let tiempoDetectado = null;
+
+                row.c.forEach(cell => {
+                    if (!cell || cell.v === null || cell.v === undefined) return;
+                    let valStr = String(cell.v).trim();
+                    let fmtStr = cell.f ? String(cell.f).trim() : valStr;
+
+                    if (nombresConocidos.has(valStr.toLowerCase())) nombreDetectado = valStr.toUpperCase();
+
+                    let fmtP = formatearNombrePrueba(valStr);
+                    if (listaPruebas17.includes(fmtP)) pruebaDetectada = fmtP;
+
+                    let tieneLetras = /[a-zA-ZáéíóúÁÉÍÓÚñÑ]/.test(fmtStr);
+                    if ((fmtStr.includes(":") || fmtStr.includes(".")) && !tieneLetras) {
+                        if (!nombresConocidos.has(valStr.toLowerCase()) && !listaPruebas17.includes(fmtP)) {
+                            tiempoDetectado = cell;
+                        }
+                    }
+                });
+
+                if (nombreDetectado && pruebaDetectada && tiempoDetectado !== null) {
+                    let tiempoLimpio = limpiarTiempo(tiempoDetectado);
+                    if (tiempoLimpio) {
+                        if (!mapaPorNadador.has(nombreDetectado)) mapaPorNadador.set(nombreDetectado, {});
+                        mapaPorNadador.get(nombreDetectado)[pruebaDetectada] = tiempoLimpio;
+                    }
+                }
+            });
+
+            return mapaPorNadador;
+        }
+
+        function cargarHistorial12MesesNadador(nombreNadador) {
+            // Token capturado al momento de iniciar esta carga. Si al terminar ya no coincide
+            // con tokenSeleccionActual, el usuario seleccionó otro nadador mientras tanto y
+            // esta respuesta quedó obsoleta: se descarta sin tocar la interfaz.
+            const miToken = tokenSeleccionActual;
+
+            // Ventana de 13 meses calculada dinámicamente a partir de la fecha real del sistema.
+            // Antes estaba fijo en "new Date(2026, 7 - i, 1)"; ahora se ajusta solo cada año.
+            let hoy = new Date();
+            let anioBase = hoy.getFullYear();
+            let mesBase = hoy.getMonth(); // 0 = Enero ... 11 = Diciembre
+
+            let mesesHistorial = [];
+            for (let i = 12; i >= 0; i--) {
+                let d = new Date(anioBase, mesBase - i, 1);
+                let mIndex = d.getMonth();
+                let year = d.getFullYear();
+                let tipo = (year === anioBase) ? 'actual' : 'anterior';
+                let mesNombreCorto = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"][mIndex];
+                mesesHistorial.push({ mesIndex: mIndex, mesNombre: mesNombreCorto, year, tipo, label: `${mesNombreCorto} ${year}` });
+            }
+
+            let nombreUpper = nombreNadador.toUpperCase();
+
+            // Máximo 4 peticiones de red simultáneas para esta ráfaga (las hojas ya
+            // cacheadas de selecciones anteriores no cuentan como petición, se resuelven
+            // al instante desde memoria).
+            return conConcurrenciaLimitada(mesesHistorial, 4, (mObj) => {
+                return obtenerHojaHistorialMes(mObj.mesIndex, mObj.tipo, generoActual);
+            }).then((mapasPorMes) => {
+                if (miToken !== tokenSeleccionActual) return; // respuesta obsoleta: ya se seleccionó otro nadador
+                let resultadosMeses = {};
+                mapasPorMes.forEach((mapaMes, idx) => {
+                    resultadosMeses[idx] = (mapaMes && mapaMes.get(nombreUpper)) || {};
+                });
+                renderizarTablaHistorial(mesesHistorial, resultadosMeses, nombreNadador);
+            });
+        }
+
+        function renderizarTablaHistorial(mesesHistorial, resultadosMeses, nombreNadador) {
+            const tabla = document.getElementById("tablaHistorial");
+            tabla.innerHTML = "";
+
+            // Año "actual" = el año más reciente presente en la ventana de 13 meses.
+            // Año "anterior" = el que le precede. Reemplaza los literales "2025"/"2026".
+            let anioActual = Math.max(...mesesHistorial.map(m => m.year));
+            let anioAnterior = anioActual - 1;
+
+            let thead = document.createElement("thead");
+            let trHead = document.createElement("tr");
+            let thVacio = document.createElement("th");
+            thVacio.textContent = "";
+            trHead.appendChild(thVacio);
+
+            listaPruebas17.forEach(p => {
+                let th = document.createElement("th");
+                th.textContent = p;
+                trHead.appendChild(th);
+            });
+            thead.appendChild(trHead);
+            tabla.appendChild(thead);
+
+            let tbody = document.createElement("tbody");
+            let trMMP = document.createElement("tr");
+            trMMP.className = "mmp-row";
+            let tdMMPLabel = document.createElement("td");
+            tdMMPLabel.textContent = String(anioAnterior);
+            trMMP.appendChild(tdMMPLabel);
+
+            let datosPrevNadador = nadadoresPrevMap.get(nombreNadador);
+            let mmpMap = {};
+            if (datosPrevNadador && datosPrevNadador.pruebas) {
+                datosPrevNadador.pruebas.forEach(p => {
+                    if (!mmpMap[p.prueba] || p.tiempo < mmpMap[p.prueba]) mmpMap[p.prueba] = p.tiempo;
+                });
+            }
+
+            listaPruebas17.forEach(p => {
+                let td = document.createElement("td");
+                td.textContent = mmpMap[p] || "";
+                trMMP.appendChild(td);
+            });
+            tbody.appendChild(trMMP);
+
+            mesesHistorial.forEach((mObj, idx) => {
+                let trMes = document.createElement("tr");
+                trMes.className = (idx % 2 === 0) ? "month-row-even" : "month-row-odd";
+                let tdLabel = document.createElement("td");
+                tdLabel.className = "month-label";
+                tdLabel.textContent = mObj.label;
+                trMes.appendChild(tdLabel);
+
+                let tiemposMes = resultadosMeses[idx] || {};
+                listaPruebas17.forEach(p => {
+                    let td = document.createElement("td");
+                    td.textContent = tiemposMes[p] || "";
+                    trMes.appendChild(td);
+                });
+                tbody.appendChild(trMes);
+            });
+
+            let mmpActualMap = {};
+            mesesHistorial.forEach((mObj, idx) => {
+                if (mObj.year === anioActual) {
+                    let tiemposMes = resultadosMeses[idx] || {};
+                    listaPruebas17.forEach(p => {
+                        let t = tiemposMes[p];
+                        if (t && (!mmpActualMap[p] || t < mmpActualMap[p])) mmpActualMap[p] = t;
+                    });
+                }
+            });
+
+            let trMMPActual = document.createElement("tr");
+            trMMPActual.className = "mmp-row";
+            let tdMMPActualLabel = document.createElement("td");
+            tdMMPActualLabel.textContent = String(anioActual);
+            trMMPActual.appendChild(tdMMPActualLabel);
+
+            listaPruebas17.forEach(p => {
+                let td = document.createElement("td");
+                td.textContent = mmpActualMap[p] || "";
+                trMMPActual.appendChild(td);
+            });
+            tbody.appendChild(trMMPActual);
+
+            let trSumSec = document.createElement("tr");
+            trSumSec.className = "month-row-even";
+            let tdSumSecLabel = document.createElement("td");
+            tdSumSecLabel.textContent = "Mejora (seg)";
+            trSumSec.appendChild(tdSumSecLabel);
+
+            listaPruebas17.forEach(p => {
+                let td = document.createElement("td");
+                let sAnterior = tiempoASegundos(mmpMap[p]);
+                let sActual = tiempoASegundos(mmpActualMap[p]);
+                if (sAnterior !== null && sActual !== null && sAnterior > 0) {
+                    let diff = sActual - sAnterior;
+                    td.textContent = `${diff > 0 ? "+" : ""}${diff.toFixed(2)} seg`;
+                } else td.textContent = "";
+                trSumSec.appendChild(td);
+            });
+            tbody.appendChild(trSumSec);
+
+            let trSumPct = document.createElement("tr");
+            trSumPct.className = "month-row-odd";
+            let tdSumPctLabel = document.createElement("td");
+            tdSumPctLabel.textContent = "Mejora (%)";
+            trSumPct.appendChild(tdSumPctLabel);
+
+            listaPruebas17.forEach(p => {
+                let td = document.createElement("td");
+                let sAnterior = tiempoASegundos(mmpMap[p]);
+                let sActual = tiempoASegundos(mmpActualMap[p]);
+                if (sAnterior !== null && sActual !== null && sAnterior > 0) {
+                    let pct = ((sAnterior - sActual) / sAnterior) * 100;
+                    td.textContent = `${pct.toFixed(2)} %`;
+                } else td.textContent = "";
+                trSumPct.appendChild(td);
+            });
+            tbody.appendChild(trSumPct);
+
+            tabla.appendChild(tbody);
+            document.getElementById("panelHistorial").style.display = "block";
+
+            ultimosMesesCache = mesesHistorial;
+            ultimosResultadosCache = resultadosMeses;
+            inicializarPanelProgresion(nombreNadador, mesesHistorial, resultadosMeses);
+            inicializarPanelProyeccionLP(nombreNadador);
+        }
+
+        function inicializarPanelProgresion(nombreNadador, mesesHistorial, resultadosMeses) {
+            const select = document.getElementById("selectPruebaProgresion");
+            select.innerHTML = "";
+            let datosNadador = nadadoresMap.get(nombreNadador);
+            let setPruebas = new Set();
+            Object.values(resultadosMeses).forEach(tiemposMes => {
+                Object.keys(tiemposMes).forEach(p => setPruebas.add(p));
+            });
+
+            let pruebasDisponibles = [];
+            if (datosNadador && datosNadador.pruebas) {
+                datosNadador.pruebas.forEach(p => {
+                    if (setPruebas.has(p.prueba)) {
+                        setPruebas.delete(p.prueba);
+                        pruebasDisponibles.push(p.prueba);
+                    }
+                });
+            }
+            setPruebas.forEach(p => pruebasDisponibles.push(p));
+            if (pruebasDisponibles.length === 0) listaPruebas17.forEach(p => pruebasDisponibles.push(p));
+
+            pruebasDisponibles.forEach(p => {
+                let opt = document.createElement("option");
+                opt.value = p;
+                opt.textContent = p;
+                select.appendChild(opt);
+            });
+
+            let mejorPrueba = (datosNadador && datosNadador.pruebas && datosNadador.pruebas.length > 0) ? datosNadador.pruebas[0].prueba : pruebasDisponibles[0];
+            if (mejorPrueba && Array.from(select.options).some(opt => opt.value === mejorPrueba)) select.value = mejorPrueba;
+
+            document.getElementById("panelProgresion").style.display = "block";
+            actualizarGraficoProgresion();
+        }
+
+        function actualizarGraficoProgresion() {
+            if (!ultimosMesesCache || !ultimosResultadosCache) return;
+            const select = document.getElementById("selectPruebaProgresion");
+            const pruebaSeleccionada = select.value;
+            if (!pruebaSeleccionada) return;
+
+            let labels = [], dataValues = [], rawTimeStrings = [];
+            ultimosMesesCache.forEach((mObj, idx) => {
+                let tiemposMes = ultimosResultadosCache[idx] || {};
+                let tiempoStr = tiemposMes[pruebaSeleccionada];
+                if (tiempoStr) {
+                    let segs = tiempoASegundos(tiempoStr);
+                    if (segs !== null && segs > 0) {
+                        labels.push(mObj.label);
+                        dataValues.push(segs);
+                        rawTimeStrings.push(tiempoStr);
+                    }
+                }
+            });
+
+            const ctx = document.getElementById('progressionChart').getContext('2d');
+            if (progressionChartInstance) progressionChartInstance.destroy();
+
+            const adaptiveBestMarkPlugin = {
+                id: 'adaptiveBestMark',
+                afterDatasetDraw(chart) {
+                    const { ctx, chartArea, scales: { x, y } } = chart;
+                    const dataset = chart.data.datasets[0];
+                    if (!dataset || !dataset.data || dataset.data.length === 0) return;
+
+                    let bestIdx = 0, bestVal = dataset.data[0];
+                    for (let i = 1; i < dataset.data.length; i++) {
+                        if (dataset.data[i] < bestVal) { bestVal = dataset.data[i]; bestIdx = i; }
+                    }
+
+                    const xPos = x.getPixelForValue(bestIdx);
+                    const yPos = y.getPixelForValue(bestVal);
+                    const labelText = `★MM: ${rawTimeStrings[bestIdx] || segundosATiempo(bestVal)}`;
+
+                    ctx.save();
+                    ctx.font = 'bold 11px Arial';
+                    let totalBoxWidth = ctx.measureText(labelText).width + 12;
+                    let boxH = 22, boxY = yPos - 32 < chartArea.top ? yPos + 10 : yPos - 32;
+                    let boxX = xPos > (chartArea.left + chartArea.right) / 2 ? xPos - totalBoxWidth - 8 : xPos + 8;
+
+                    ctx.fillStyle = '#051933';
+                    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(boxX, boxY, totalBoxWidth, boxH, 4); ctx.fill(); }
+                    else ctx.fillRect(boxX, boxY, totalBoxWidth, boxH);
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(labelText, boxX + totalBoxWidth / 2, boxY + boxH / 2);
+                    ctx.restore();
+                }
+            };
+
+            progressionChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: `Progreso - ${pruebaSeleccionada}`,
+                        data: dataValues,
+                        borderColor: '#051933',
+                        backgroundColor: 'rgba(5, 25, 51, 0.1)',
+                        borderWidth: 3,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#051933',
+                        tension: 0.3,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: { padding: { top: 28, right: 15, left: 10, bottom: 5 } },
+                    scales: {
+                        y: { reverse: true, title: { display: true, text: 'Tiempo' }, ticks: { callback: v => segundosATiempo(v) } },
+                        x: { title: { display: true, text: 'Periodo (Meses)' } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: c => ` Tiempo: ${rawTimeStrings[c.dataIndex] || segundosATiempo(c.parsed.y)}` } }
+                    }
+                },
+                plugins: [adaptiveBestMarkPlugin]
+            });
+        }
+
+        function inicializarPanelProyeccionLP(nombreNadador) {
+            const select = document.getElementById("selectPruebaLP");
+            select.innerHTML = "";
+            let datosNadador = nadadoresMap.get(nombreNadador);
+
+            // Se listan SIEMPRE las 17 pruebas (para poder ver también las que el
+            // nadador no nada hace tiempo), mostrando la mejor marca junto a las que sí tiene.
+            let mapaMarcas = {};
+            if (datosNadador && datosNadador.pruebas) {
+                datosNadador.pruebas.forEach(p => { mapaMarcas[p.prueba] = p.tiempo; });
+            }
+
+            listaPruebas17.forEach(p => {
+                let opt = document.createElement("option");
+                opt.value = p;
+                opt.textContent = mapaMarcas[p] ? `${p} (MM: ${mapaMarcas[p]})` : p;
+                select.appendChild(opt);
+            });
+
+            // Selecciona por defecto la mejor prueba del nadador (si existe), igual que antes
+            let mejorPrueba = (datosNadador && datosNadador.pruebas && datosNadador.pruebas.length > 0) ? datosNadador.pruebas[0].prueba : "";
+            if (mejorPrueba && Array.from(select.options).some(opt => opt.value === mejorPrueba)) {
+                select.value = mejorPrueba;
+            }
+
+            document.getElementById("panelProyeccionLP").style.display = "block";
+            actualizarPanelProyeccionLP();
+        }
+
+        async function actualizarPanelProyeccionLP() {
+            if (!nadadorActualCache) return;
+            const nadador = nadadorActualCache;
+            const pruebaSel = document.getElementById("selectPruebaLP").value;
+            if (!pruebaSel) return;
+
+            // Token capturado al iniciar: si al terminar las peticiones de red ya no coincide
+            // con tokenSeleccionActual (el usuario seleccionó otro nadador), o el desplegable
+            // de prueba ya muestra otro valor (el usuario cambió de prueba), esta respuesta
+            // quedó obsoleta y se descarta más abajo, en vez de sobrescribir el panel actual.
+            const miToken = tokenSeleccionActual;
+
+            let pruebaObj = nadador.pruebas.find(p => p.prueba === pruebaSel);
+            let tiempoTxt = pruebaObj ? pruebaObj.tiempo : "-";
+            let pwaTxt = pruebaObj ? pruebaObj.puntosWA : 0;
+            
+            // Indicador visual de carga
+            document.getElementById("infoTiempoPwaLP").value = `Calculando proyecciones plurianuales para ${pruebaSel}...`;
+
+            document.getElementById("legendLabelReal").textContent = `Mejor Marca (${pruebaSel})`;
+            document.getElementById("legendLabelProy").textContent = `Marca Proyectada (${pruebaSel})`;
+
+            let edadActual = parseInt(String(nadador.edad).replace(/\D/g, "")) || 15;
+            let anioActual = new Date().getFullYear();
+            let anioInicio = edadActual < 16 ? anioActual - (edadActual - 10) : anioActual - 5;
+
+            let anios = [];
+            for (let i = 0; i < 11; i++) {
+                anios.push(anioInicio + i);
+            }
+
+            let edadesCol = anios.map(y => edadActual + (y - anioActual));
+
+            // Los años ya cacheados (cacheRankingsAnuales) se resuelven al instante sin red;
+            // los que faltan se piden con un máximo de 4 en paralelo (antes podían salir
+            // hasta 11 peticiones al mismo tiempo en la primera consulta de un nadador).
+            let resultadosAnuales = await conConcurrenciaLimitada(anios, 4, async (anio) => {
+                let marcaStr = "-";
+                let segs = null;
+
+                if (mapaRankingAnual[anio]) {
+                    let sheetId = mapaRankingAnual[anio][generoActual];
+                    if (sheetId) {
+                        let dataAnual = cacheRankingsAnuales[`${anio}_${generoActual}`];
+                        if (!dataAnual) {
+                            dataAnual = await fetchRankingAnualSheet(sheetId);
+                            cacheRankingsAnuales[`${anio}_${generoActual}`] = dataAnual;
+                        }
+
+                        let keyBusqueda = `${nadador.nombre.toUpperCase()}_${pruebaSel.toUpperCase()}`;
+                        if (dataAnual && dataAnual.has(keyBusqueda)) {
+                            marcaStr = dataAnual.get(keyBusqueda);
+                            segs = tiempoASegundos(marcaStr);
+                        }
+                    }
+                }
+                return { marcaStr, segs };
+            });
+
+            // Respuesta obsoleta: el usuario ya seleccionó otro nadador u otra prueba mientras
+            // se esperaban las peticiones de red. Se descarta sin tocar la interfaz actual.
+            if (miToken !== tokenSeleccionActual || document.getElementById("selectPruebaLP").value !== pruebaSel) {
+                return;
+            }
+
+            let marcasRealesStrs = resultadosAnuales.map(r => r.marcaStr);
+            let marcasRealesSegs = resultadosAnuales.map(r => r.segs);
+
+            // Restaurar texto informativo con datos reales
+            document.getElementById("infoTiempoPwaLP").value = `Prueba: ${pruebaSel} | Tiempo: ${tiempoTxt} | Puntos WA: ${pwaTxt}`;
+
+            // Determinar el último índice con datos reales
+            let baseIdx = -1;
+            for (let i = marcasRealesSegs.length - 1; i >= 0; i--) {
+                if (marcasRealesSegs[i] !== null) { baseIdx = i; break; }
+            }
+            if (baseIdx === -1 && marcasRealesSegs.length > 0) baseIdx = 0;
+
+            // Inicializar porcentajes (reales o desde caché)
+            let porcentajes = [];
+            let ultimoValorConocido = marcasRealesSegs[0] > 0 ? marcasRealesSegs[0] : null; // última marca real vista
+            for (let i = 0; i < anios.length; i++) {
+                if (i === 0) {
+                    porcentajes.push(0); // El primer año no tiene base anterior
+                } else if (i <= baseIdx) {
+                    // Cálculo de mejora real: ((Última marca conocida - Actual) / Última marca conocida) * 100
+                    // Si hubo años sin nadar la prueba en el medio (marca = null), se compara
+                    // contra la última vez que sí la nadó, en lugar de dar 0% de mejora.
+                    let curr = marcasRealesSegs[i];
+                    if (curr > 0) {
+                        if (ultimoValorConocido > 0) {
+                            porcentajes.push(((ultimoValorConocido - curr) / ultimoValorConocido) * 100);
+                        } else {
+                            porcentajes.push(0);
+                        }
+                        ultimoValorConocido = curr;
+                    } else {
+                        porcentajes.push(0); // este año no hay marca real, no aplica % de mejora
+                    }
+                } else {
+                    // Proyección desde la base de datos de porcentajes
+                    // CORRECCIÓN: Se usa 'edadesCol[i]' en lugar de 'edadesCol[i-1]'
+                    let edadActualProyectada = edadesCol[i];
+                    let pctData = cachePorcentajesProyeccion[edadActualProyectada];
+                    porcentajes.push(pctData ? (generoActual === "femenino" ? pctData.femenino : pctData.masculino) : 0);
+                }
+            }
+
+            // Guardar en el estado global y ejecutar el renderizado
+            estadoProyeccion = {
+                anios, edadesCol, marcasRealesStrs, marcasRealesSegs, baseIdx, porcentajes, pruebaSel
+            };
+
+            recalcularYRenderizarProyeccionLP();
+        }
+
+        function recalcularYRenderizarProyeccionLP(indexAEnfocar) {
+            let { anios, edadesCol, marcasRealesStrs, marcasRealesSegs, baseIdx, porcentajes, pruebaSel } = estadoProyeccion;
+            let proyeccionesSegs = [...marcasRealesSegs];
+
+            // 1. Recalcular los tiempos proyectados basándose en los porcentajes actuales
+            for (let i = baseIdx + 1; i < anios.length; i++) {
+                let valPrev = proyeccionesSegs[i - 1];
+                if (valPrev !== null && valPrev > 0) {
+                    proyeccionesSegs[i] = valPrev * (1 - (porcentajes[i] / 100));
+                }
+            }
+
+            // 2. Construir las 5 filas de la tabla solicitadas
+            const tabla = document.getElementById("tablaProyeccionLP");
+            
+            // Fila 1: Año
+            let htmlRowAnio = `<tr><th>Año</th>` + anios.map(y => `<th>${y}</th>`).join("") + `</tr>`;
+            
+            // Fila 2: Edad
+            let htmlRowEdad = `<tr><td><b>Edad</b></td>` + edadesCol.map(e => `<td>${e}</td>`).join("") + `</tr>`;
+            
+            // Fila 3: Mejor Marca
+            let htmlRowMarca = `<tr><td><b>Mejor Marca</b></td>` + marcasRealesStrs.map(m => `<td><b>${m !== "-" ? escapeHtml(m) : "-"}</b></td>`).join("") + `</tr>`;
+            
+            // Fila 4: Proyección
+            let htmlRowProy = `<tr><td><b>Proyección</b></td>` + proyeccionesSegs.map((s, idx) => `<td>${idx > baseIdx ? segundosATiempo(s) : "-"}</td>`).join("") + `</tr>`;
+            
+            // Fila 5: % de Mejora (Texto plano para pasado, input editable para futuro)
+            let htmlRowPct = `<tr><td><b>% de Mejora</b></td>`;
+            for (let i = 0; i < anios.length; i++) {
+                if (i === 0) {
+                    htmlRowPct += `<td>-</td>`;
+                } else if (i <= baseIdx) {
+                    htmlRowPct += `<td>${porcentajes[i].toFixed(2)}%</td>`; // Real histórico
+                } else {
+                    // Input editable para proyecciones. data-idx identifica la celda para
+                    // poder devolverle el foco después de reconstruir la tabla (ver más abajo).
+                    htmlRowPct += `<td>
+                        <input type="number" 
+                               value="${porcentajes[i].toFixed(2)}" 
+                               step="0.01"
+                               data-idx="${i}"
+                               style="width: 55px; text-align: center; border: 1px solid #dcdcdc; border-radius: 4px; padding: 4px; font-size: 11px; font-weight: bold; color: #3b65c2;"
+                               onchange="actualizarPorcentajeProyeccion(${i}, this.value)">
+                        %
+                    </td>`;
+                }
+            }
+            htmlRowPct += `</tr>`;
+
+            // Insertar HTML
+            tabla.innerHTML = htmlRowAnio + htmlRowEdad + htmlRowMarca + htmlRowProy + htmlRowPct;
+
+            // Reconstruir la tabla completa (innerHTML) descarta cualquier foco/cursor que
+            // hubiera en un input de % editable. Si esta llamada vino de editar uno de esos
+            // inputs, se le devuelve el foco (y se selecciona su valor) para poder seguir
+            // editando los años siguientes sin tener que volver a hacer clic cada vez.
+            if (typeof indexAEnfocar === "number") {
+                let inputAEnfocar = tabla.querySelector(`input[data-idx="${indexAEnfocar}"]`);
+                if (inputAEnfocar) {
+                    inputAEnfocar.focus();
+                    inputAEnfocar.select();
+                }
+            }
+
+            // 3. Actualizar Gráfico
+            renderizarGraficoProyeccionLP(anios, marcasRealesSegs, proyeccionesSegs, pruebaSel);
+        }
+
+        function actualizarPorcentajeProyeccion(index, nuevoValor) {
+            let val = parseFloat(nuevoValor);
+            if (!isNaN(val)) {
+                // Actualiza el estado con el valor ingresado por el usuario y recalcula
+                estadoProyeccion.porcentajes[index] = val;
+                recalcularYRenderizarProyeccionLP(index);
+            }
+        }
+
+        function fetchRankingAnualSheet(sheetId) {
+            const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?sheet=SORT&range=A2:E`;
+            return cargarJSONP(url).then((json) => {
+                let mapAnual = new Map();
+                if (!json) {
+                    console.warn(`No se pudo cargar el ranking anual (hoja ${sheetId}).`);
+                    return mapAnual;
+                }
+                if (json.table && json.table.rows) {
+                    let primeraFila = true;
+                    json.table.rows.forEach(row => {
+                        if (row.c && row.c[2] && row.c[2].v && row.c[1] && row.c[1].v) {
+                            if (primeraFila) {
+                                advertirSiEstructuraInesperada(`Ranking anual (hoja ${sheetId})`, row, 5);
+                                primeraFila = false;
+                            }
+                            let nombre = String(row.c[2].v).trim().toUpperCase();
+                            let prueba = formatearNombrePrueba(String(row.c[1].v).trim());
+                            let tiempo = limpiarTiempo(row.c[4]);
+                            if (nombre && prueba && tiempo) {
+                                mapAnual.set(`${nombre}_${prueba}`, tiempo);
+                            }
+                        }
+                    });
+                }
+                return mapAnual;
+            });
+        }
+
+        function renderizarGraficoProyeccionLP(anios, marcasRealesSegs, proyeccionesSegs, pruebaSel) {
+            const ctx = document.getElementById("chartProyeccionLP").getContext("2d");
+            if (projectionChartInstance) projectionChartInstance.destroy();
+
+            projectionChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: anios,
+                    datasets: [
+                        {
+                            label: `Mejor Marca (${pruebaSel})`,
+                            data: marcasRealesSegs,
+                            borderColor: '#051933',
+                            backgroundColor: '#051933',
+                            borderWidth: 3,
+                            pointRadius: 5,
+                            tension: 0.2,
+                            fill: false,
+                            spanGaps: true
+                        },
+                        {
+                            label: `Proyección   (${pruebaSel})`,
+                            data: proyeccionesSegs,
+                            borderColor: '#3b65c2',
+                            backgroundColor: '#3b65c2',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 4,
+                            tension: 0.2,
+                            fill: false,
+                            spanGaps: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            reverse: true,
+                            title: { display: true, text: 'Tiempo (MM:SS.mm)' },
+                            ticks: { callback: v => segundosATiempo(v) }
+                        },
+                        x: {
+                            title: { display: true, text: 'Años' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let val = context.parsed.y;
+                                    return ` ${context.dataset.label}: ${segundosATiempo(val)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function seleccionarNadador(datosNadador) {
+            tokenSeleccionActual++;
+            input.value = datosNadador.nombre;
+            listaSugerencias.style.display = "none";
+            inputWrapper.classList.remove("open");
+
+            document.getElementById("valNadador").textContent = datosNadador.nombre;
+
+            let partesInfo = [];
+            if (datosNadador.categoria !== "") partesInfo.push(datosNadador.categoria);
+            if (datosNadador.edad !== "") partesInfo.push(datosNadador.edad);
+            if (datosNadador.liga !== "") partesInfo.push(datosNadador.liga);
+            if (datosNadador.club !== "") partesInfo.push(datosNadador.club);
+
+            document.getElementById("valCatEdClub").textContent = partesInfo.join(" | ") || "-";
+            document.getElementById("panelRendimiento").style.display = "block";
+
+            datosNadador.pruebas.sort((a, b) => {
+                let rankA = parseInt(a.ranking) || 999999;
+                let rankB = parseInt(b.ranking) || 999999;
+                return rankA !== rankB ? rankA - rankB : b.puntosWA - a.puntosWA;
+            });
+
+            const tbody = document.getElementById("tablaPruebasBody");
+            tbody.innerHTML = "";
+
+            if (datosNadador.pruebas && datosNadador.pruebas.length > 0) {
+                datosNadador.pruebas.forEach(p => {
+                    let tr = document.createElement("tr");
+                    tr.innerHTML = `<td>${escapeHtml(p.prueba)}</td><td>${escapeHtml(p.tiempo)}</td><td>${escapeHtml(p.ranking)}</td><td>${escapeHtml(p.puntosWA)}</td><td>${escapeHtml(p.fechaTorneo)}</td>`;
+                    tbody.appendChild(tr);
+                });
+                document.getElementById("panelPruebas").style.display = "block";
+            } else {
+                document.getElementById("panelPruebas").style.display = "none";
+            }
+
+            let edadNum = parseInt(String(datosNadador.edad).replace(/\D/g, "")) || 0;
+            let catUpper = (datosNadador.categoria || "").toUpperCase();
+            let torneoIndexDefault = (catUpper.includes("JUVENIL") || catUpper.includes("MAYORES") || catUpper.includes("OPEN") || edadNum >= 14) ? 1 : 0;
+
+            const selectTorneo = document.getElementById("selectTorneoMinimas");
+            if (selectTorneo && selectTorneo.options.length > torneoIndexDefault) selectTorneo.value = torneoIndexDefault;
+
+            procesarPanelMMIC(datosNadador);
+            updateChart(calcularMaxPuntosPorEstilo(datosNadador.pruebas));
+            document.getElementById("panelVersatilidad").style.display = "block";
+            cargarHistorial12MesesNadador(datosNadador.nombre);
+        }
+
+        document.addEventListener("click", function(e) {
+            if (e.target !== input && e.target !== listaSugerencias && !listaSugerencias.contains(e.target)) {
+                listaSugerencias.style.display = "none";
+                inputWrapper.classList.remove("open");
+            }
+        });
+
+        window.onload = async function() {
+            const footerAnio = document.getElementById("anioFooter");
+            if (footerAnio) footerAnio.textContent = String(new Date().getFullYear());
+
+            const inputElement = document.getElementById("buscadorNadador");
+            inputElement.disabled = true;
+            inputElement.placeholder = "Cargando configuración...";
+
+            // Primero se resuelve configs/dbMeses/mapaRankingAnual/idHojaProyeccionActual/
+            // idIndiceMinimasActual (hoja de config o respaldo) porque cargarDatos(),
+            // cargarPorcentajesProyeccion() y cargarIndiceMinimas() ya necesitan esos valores.
+            await cargarConfiguracion();
+
+            inputElement.placeholder = "Cargando datos...";
+            cargarPorcentajesProyeccion();
+            cargarIndiceMinimas();
+            cargarDatos("femenino");
+        };
+    </script>
+</body>
+</html>
