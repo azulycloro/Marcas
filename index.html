@@ -563,6 +563,9 @@
                             <!-- Se llena dinámicamente -->
                         </tbody>
                     </table>
+                    <div id="notaFechaAproximada" style="display: none; margin-top: 8px; font-size: 12px; color: #555;">
+                        ~ Fecha aproximada: esta marca no está en la hoja de ranking ni tiene fecha exacta registrada en el historial mensual, así que se ubicó solo por el mes en que se nadó.
+                    </div>
                 </div>
             </div>
         </div>
@@ -628,7 +631,7 @@
                 </div>
                 <div style="overflow-x: auto; margin-bottom: 20px;">
                     <table class="projection-table" id="tablaProyeccionLP">
-                        <!-- Se llena dinámicamente (columnas = años de historial real + proyección; 5 filas) -->
+                        <!-- Se llena dinámicamente (11 columnas x 4 filas) -->
                     </table>
                 </div>
                 <!-- Leyenda personalizada con muestras de línea en lugar de cuadros de color -->
@@ -679,15 +682,6 @@
         };
 
         const listaPruebas17 = ["50L", "100L", "200L", "400L", "800L", "1500L", "50E", "100E", "200E", "50P", "100P", "200P", "50M", "100M", "200M", "200CI", "400CI"];
-
-        // Parámetros del panel "Análisis y Proyección a Largo Plazo" (ver actualizarPanelProyeccionLP).
-        // Antes de EDAD_LIMITE_DESARROLLO años, el nadador está en etapa de desarrollo y se
-        // proyecta hasta que cumpla EDAD_OBJETIVO_PROYECCION (horizonte más largo, útil para
-        // fijar metas de mediano plazo). De ahí en adelante, siempre se proyectan
-        // ANIOS_PROYECCION_ESTABLE años hacia delante desde el año actual.
-        const EDAD_LIMITE_DESARROLLO = 16;
-        const EDAD_OBJETIVO_PROYECCION = 20;
-        const ANIOS_PROYECCION_ESTABLE = 5;
 
         // Enlaces de Ranking Anual para el panel de Proyección a Largo Plazo (respaldo)
         const mapaRankingAnualDefault = {
@@ -1692,7 +1686,11 @@
             });
         }
 
-        function procesarPanelMMIC(datosNadador) {
+        async function procesarPanelMMIC(datosNadador) {
+            // Token capturado al iniciar. Si cambia mientras esperamos el historial (porque el
+            // usuario seleccionó otro nadador u otro torneo), esta respuesta quedó obsoleta.
+            const miToken = tokenSeleccionActual;
+
             nadadorActualCache = datosNadador;
             const selectTorneo = document.getElementById("selectTorneoMinimas");
             const selectedIdx = selectTorneo.value !== "" ? parseInt(selectTorneo.value) : 0;
@@ -1740,6 +1738,25 @@
             advertenciaEl.style.display = "none";
             contenedorTabla.style.display = "block";
 
+            // La hoja principal ("Filteru") de donde sale datosNadador.pruebas solo trae los
+            // resultados que entraron al RANKING de cada prueba — no el historial completo del
+            // nadador. Por eso, si su mejor marca histórica de una prueba no cae dentro del
+            // período de clasificación de este torneo, antes se mostraba "Sin Tiempo" aunque el
+            // nadador SÍ tuviera otra marca (no la mejor) válida dentro de ese período.
+            //
+            // Para corregirlo, se completa la búsqueda con el historial mensual (que si registra
+            // cualquier marca, entre al ranking o no). asegurarHistorialCargado reutiliza el
+            // caché ya cargado por cargarHistorial12MesesNadador — normalmente no genera ninguna
+            // petición nueva, porque el historial ya se disparó al seleccionar el nadador.
+            let mesesHistorialWindow = await asegurarHistorialCargado(generoActual);
+
+            // Si mientras esperábamos el historial el usuario ya seleccionó otro nadador, o
+            // cambió de torneo, esta respuesta quedó obsoleta: no pisamos la tabla con datos viejos.
+            let selectedIdxAhora = selectTorneo.value !== "" ? parseInt(selectTorneo.value) : 0;
+            if (miToken !== tokenSeleccionActual || selectedIdxAhora !== selectedIdx) return;
+
+            let nombreUpperNadador = datosNadador.nombre.toUpperCase();
+
             let filasAnalisis = [];
             listaPruebas17.forEach(prueba => {
                 let mmicPruebaObj = mmicRecord.pruebas[prueba];
@@ -1767,18 +1784,67 @@
                         if (dentroPeriodo) {
                             let curBest = bestTimePeriodo ? bestTimePeriodo.segundos : 999999;
                             if (sTime < curBest) {
-                                bestTimePeriodo = { tiempo: p.tiempo, fecha: p.fechaTorneo, segundos: sTime };
+                                bestTimePeriodo = { tiempo: p.tiempo, fecha: p.fechaTorneo, segundos: sTime, aproximado: false };
                             }
                         } else if (antesPeriodo) {
                             let curBest = bestTimeAntes ? bestTimeAntes.segundos : 999999;
                             if (sTime < curBest) {
-                                bestTimeAntes = { tiempo: p.tiempo, fecha: p.fechaTorneo, segundos: sTime };
+                                bestTimeAntes = { tiempo: p.tiempo, fecha: p.fechaTorneo, segundos: sTime, aproximado: false };
                             }
                         }
                     });
                 }
 
+                // Complemento con historial mensual. Ahora que parsearHojaHistorialMensual
+                // captura la fecha exacta (columna G de la hoja "SORT"), se compara día por
+                // día contra el período de clasificación — igual de preciso que la hoja de
+                // ranking. Si por algún motivo esa fecha no vino o no se pudo interpretar
+                // (celda vacía, formato raro), se cae de respaldo al mes completo como rango
+                // aproximado y se marca "aproximado: true" para que se vea el "~" en la tabla.
+                mesesHistorialWindow.forEach(mObj => {
+                    let key = `${mObj.mesIndex}_${mObj.tipo}_${generoActual}`;
+                    let mapaMes = cacheHojasHistorial[key];
+                    let datosDelMes = mapaMes ? mapaMes.get(nombreUpperNadador) : null;
+                    let entradaMes = datosDelMes ? datosDelMes[prueba] : null;
+                    if (!entradaMes || !entradaMes.tiempo) return;
+
+                    let sTime = tiempoASegundos(entradaMes.tiempo);
+                    if (sTime === null || sTime <= 0) return;
+
+                    let tsFechaExacta = entradaMes.fecha ? parsearFechaToTimestamp(entradaMes.fecha) : 0;
+                    let usaFechaExacta = tsFechaExacta > 0;
+
+                    let tsInicioRango, tsFinRango, fechaMostrada;
+                    if (usaFechaExacta) {
+                        tsInicioRango = tsFechaExacta;
+                        tsFinRango = tsFechaExacta;
+                        fechaMostrada = entradaMes.fecha;
+                    } else {
+                        tsInicioRango = new Date(mObj.year, mObj.mesIndex, 1).getTime();
+                        tsFinRango = new Date(mObj.year, mObj.mesIndex + 1, 0, 23, 59, 59).getTime();
+                        fechaMostrada = mObj.label;
+                    }
+
+                    let dentroPeriodo = tsFechaInicioMMIC === 0 ||
+                        (tsFinRango >= tsFechaInicioMMIC && (tsFechaCierreMMIC === 0 || tsInicioRango <= tsFechaCierreMMIC));
+                    let antesPeriodo = tsFechaInicioMMIC > 0 && tsFinRango < tsFechaInicioMMIC;
+
+                    if (dentroPeriodo) {
+                        let curBest = bestTimePeriodo ? bestTimePeriodo.segundos : 999999;
+                        if (sTime < curBest) {
+                            bestTimePeriodo = { tiempo: entradaMes.tiempo, fecha: fechaMostrada, segundos: sTime, aproximado: !usaFechaExacta };
+                        }
+                    } else if (antesPeriodo) {
+                        let curBest = bestTimeAntes ? bestTimeAntes.segundos : 999999;
+                        if (sTime < curBest) {
+                            bestTimeAntes = { tiempo: entradaMes.tiempo, fecha: fechaMostrada, segundos: sTime, aproximado: !usaFechaExacta };
+                        }
+                    }
+                });
+
+
                 let swimmerTimeStr = "-";
+
                 let swimmerFecha = "-";
                 let swimmerSec = null;
                 let estadoCumple = "";
@@ -1786,7 +1852,7 @@
 
                 if (bestTimePeriodo) {
                     swimmerTimeStr = bestTimePeriodo.tiempo;
-                    swimmerFecha = bestTimePeriodo.fecha;
+                    swimmerFecha = bestTimePeriodo.aproximado ? `~${bestTimePeriodo.fecha}` : bestTimePeriodo.fecha;
                     swimmerSec = bestTimePeriodo.segundos;
                     porcentajeAproximacion = (swimmerSec > 0 && mmicSec > 0) ? (mmicSec / swimmerSec) * 100 : 0;
 
@@ -1797,7 +1863,7 @@
                     }
                 } else if (bestTimeAntes) {
                     swimmerTimeStr = bestTimeAntes.tiempo;
-                    swimmerFecha = bestTimeAntes.fecha;
+                    swimmerFecha = bestTimeAntes.aproximado ? `~${bestTimeAntes.fecha}` : bestTimeAntes.fecha;
                     swimmerSec = bestTimeAntes.segundos;
                     porcentajeAproximacion = (swimmerSec > 0 && mmicSec > 0) ? (mmicSec / swimmerSec) * 100 : 0;
 
@@ -1823,6 +1889,12 @@
             });
 
             filasAnalisis.sort((a, b) => b.porcentajeAproximacion - a.porcentajeAproximacion);
+
+            const notaAprox = document.getElementById("notaFechaAproximada");
+            if (notaAprox) {
+                let hayAlgunaAproximada = filasAnalisis.some(item => item.swimmerFecha && item.swimmerFecha.startsWith("~"));
+                notaAprox.style.display = hayAlgunaAproximada ? "block" : "none";
+            }
 
             let contadorCumple = 0;
 
@@ -1904,6 +1976,10 @@
         // (nombre / prueba / tiempo se identifican por contenido, no por posición fija de
         // columna), pero comparando contra el conjunto de nadadores conocidos en vez de un
         // único nombre, para poder indexar la hoja completa en un solo recorrido.
+        //
+        // Además captura la FECHA exacta de la marca (columna G / índice 6 — misma posición
+        // que "fechaTorneo" en la hoja principal de ranking), para que el análisis de mínimas
+        // pueda comparar contra el período de clasificación día por día, no solo por mes.
         function parsearHojaHistorialMensual(json) {
             let mapaPorNadador = new Map();
             if (!json || !json.table || !json.table.rows) return mapaPorNadador;
@@ -1937,8 +2013,25 @@
                 if (nombreDetectado && pruebaDetectada && tiempoDetectado !== null) {
                     let tiempoLimpio = limpiarTiempo(tiempoDetectado);
                     if (tiempoLimpio) {
+                        let celdaFecha = row.c[6];
+                        let fechaDetectada = (celdaFecha && (celdaFecha.f || celdaFecha.v !== null)) ? String(celdaFecha.f || celdaFecha.v).trim() : "";
+
                         if (!mapaPorNadador.has(nombreDetectado)) mapaPorNadador.set(nombreDetectado, {});
-                        mapaPorNadador.get(nombreDetectado)[pruebaDetectada] = tiempoLimpio;
+                        let registroNadador = mapaPorNadador.get(nombreDetectado);
+                        let existente = registroNadador[pruebaDetectada];
+
+                        // Si el nadador aparece más de una vez en la misma prueba dentro del
+                        // mismo mes (dos competencias, prelim/final, etc.), nos quedamos con
+                        // la marca más rápida en vez de la última fila leída.
+                        if (!existente) {
+                            registroNadador[pruebaDetectada] = { tiempo: tiempoLimpio, fecha: fechaDetectada };
+                        } else {
+                            let sNuevo = tiempoASegundos(tiempoLimpio);
+                            let sExistente = tiempoASegundos(existente.tiempo);
+                            if (sNuevo !== null && (sExistente === null || sNuevo < sExistente)) {
+                                registroNadador[pruebaDetectada] = { tiempo: tiempoLimpio, fecha: fechaDetectada };
+                            }
+                        }
                     }
                 }
             });
@@ -1946,28 +2039,44 @@
             return mapaPorNadador;
         }
 
-        function cargarHistorial12MesesNadador(nombreNadador) {
-            // Token capturado al momento de iniciar esta carga. Si al terminar ya no coincide
-            // con tokenSeleccionActual, el usuario seleccionó otro nadador mientras tanto y
-            // esta respuesta quedó obsoleta: se descarta sin tocar la interfaz.
-            const miToken = tokenSeleccionActual;
-
-            // Ventana de 13 meses calculada dinámicamente a partir de la fecha real del sistema.
-            // Antes estaba fijo en "new Date(2026, 7 - i, 1)"; ahora se ajusta solo cada año.
+        // Ventana de 13 meses (mes actual + 12 anteriores) calculada dinámicamente a partir
+        // de la fecha real del sistema. Se usa tanto para el historial mensual como para el
+        // panel de Marcas Mínimas (para completar datos que no están en la hoja de ranking).
+        function construirVentanaMesesHistorial() {
             let hoy = new Date();
             let anioBase = hoy.getFullYear();
             let mesBase = hoy.getMonth(); // 0 = Enero ... 11 = Diciembre
 
-            let mesesHistorial = [];
+            let meses = [];
             for (let i = 12; i >= 0; i--) {
                 let d = new Date(anioBase, mesBase - i, 1);
                 let mIndex = d.getMonth();
                 let year = d.getFullYear();
                 let tipo = (year === anioBase) ? 'actual' : 'anterior';
                 let mesNombreCorto = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"][mIndex];
-                mesesHistorial.push({ mesIndex: mIndex, mesNombre: mesNombreCorto, year, tipo, label: `${mesNombreCorto} ${year}` });
+                meses.push({ mesIndex: mIndex, mesNombre: mesNombreCorto, year, tipo, label: `${mesNombreCorto} ${year}` });
             }
+            return meses;
+        }
 
+        // Garantiza que las hojas mensuales de historial (13 meses) estén cargadas en
+        // cacheHojasHistorial para el género dado. Si ya están cacheadas (lo normal, porque
+        // cargarHistorial12MesesNadador ya se disparó al seleccionar cualquier nadador antes),
+        // no genera peticiones nuevas — se resuelve al instante. Devuelve la ventana de meses
+        // usada, para que quien la llame pueda cruzar fechas contra ella.
+        function asegurarHistorialCargado(genero) {
+            let meses = construirVentanaMesesHistorial();
+            return conConcurrenciaLimitada(meses, 4, (mObj) => {
+                return obtenerHojaHistorialMes(mObj.mesIndex, mObj.tipo, genero);
+            }).then(() => meses);
+        }
+
+        function cargarHistorial12MesesNadador(nombreNadador) {
+            // Token capturado al momento de iniciar esta carga. Si al terminar ya no coincide
+            // con tokenSeleccionActual, el usuario seleccionó otro nadador mientras tanto y
+            // esta respuesta quedó obsoleta: se descarta sin tocar la interfaz.
+            const miToken = tokenSeleccionActual;
+            let mesesHistorial = construirVentanaMesesHistorial();
             let nombreUpper = nombreNadador.toUpperCase();
 
             // Máximo 4 peticiones de red simultáneas para esta ráfaga (las hojas ya
@@ -1979,7 +2088,14 @@
                 if (miToken !== tokenSeleccionActual) return; // respuesta obsoleta: ya se seleccionó otro nadador
                 let resultadosMeses = {};
                 mapasPorMes.forEach((mapaMes, idx) => {
-                    resultadosMeses[idx] = (mapaMes && mapaMes.get(nombreUpper)) || {};
+                    // parsearHojaHistorialMensual ahora guarda {tiempo, fecha} por prueba (para
+                    // que el panel de Marcas Mínimas pueda usar la fecha exacta). La tabla de
+                    // historial solo necesita el tiempo, así que se extrae acá para no tener
+                    // que tocar renderizarTablaHistorial.
+                    let datosDelMesRaw = (mapaMes && mapaMes.get(nombreUpper)) || {};
+                    let soloTiempos = {};
+                    Object.keys(datosDelMesRaw).forEach(p => { soloTiempos[p] = datosDelMesRaw[p].tiempo; });
+                    resultadosMeses[idx] = soloTiempos;
                 });
                 renderizarTablaHistorial(mesesHistorial, resultadosMeses, nombreNadador);
             });
@@ -2294,42 +2410,39 @@
 
             let edadActual = parseInt(String(nadador.edad).replace(/\D/g, "")) || 15;
             let anioActual = new Date().getFullYear();
+            let anioInicio = edadActual < 16 ? anioActual - (edadActual - 10) : anioActual - 5;
 
-            // ¿Hasta qué año se proyecta hacia delante? Se preserva el diseño original: un
-            // nadador en desarrollo (menor de EDAD_LIMITE_DESARROLLO años) proyecta hasta
-            // cumplir EDAD_OBJETIVO_PROYECCION años; de ahí en adelante, siempre se proyectan
-            // ANIOS_PROYECCION_ESTABLE años hacia delante desde hoy.
-            let anioFinProyeccion = edadActual < EDAD_LIMITE_DESARROLLO
-                ? anioActual + (EDAD_OBJETIVO_PROYECCION - edadActual)
-                : anioActual + ANIOS_PROYECCION_ESTABLE;
+            let anios = [];
+            for (let i = 0; i < 11; i++) {
+                anios.push(anioInicio + i);
+            }
 
-            // ¿Desde qué año arranca la tabla? En vez de asumir que todo nadador empezó a
-            // competir exactamente a los 10 años (lo que además se rompía matemáticamente
-            // para una edad hipotética menor a 10), se busca el primer año -entre TODOS los
-            // años que tengan hoja configurada en mapaRankingAnual- en el que el nadador
-            // tiene una marca real para ESTA prueba puntual. Así, a medida que se agreguen
-            // temporadas más antiguas a la hoja de configuración, esa historia real aparece
-            // sola, sin tocar código ni depender de un supuesto de edad.
-            let aniosConfigurados = Object.keys(mapaRankingAnual)
-                .map(Number)
-                .filter(a => a <= anioActual && mapaRankingAnual[a] && mapaRankingAnual[a][generoActual])
-                .sort((a, b) => a - b);
+            let edadesCol = anios.map(y => edadActual + (y - anioActual));
 
-            let keyBusqueda = `${nadador.nombre.toUpperCase()}_${pruebaSel.toUpperCase()}`;
+            // Los años ya cacheados (cacheRankingsAnuales) se resuelven al instante sin red;
+            // los que faltan se piden con un máximo de 4 en paralelo (antes podían salir
+            // hasta 11 peticiones al mismo tiempo en la primera consulta de un nadador).
+            let resultadosAnuales = await conConcurrenciaLimitada(anios, 4, async (anio) => {
+                let marcaStr = "-";
+                let segs = null;
 
-            // Se piden (o se reutilizan del caché) TODOS los años configurados —no solo una
-            // ventana fija de 11— para poder ubicar el primer año real del nadador en esta
-            // prueba. Un máximo de 4 en paralelo, igual que antes; una vez cacheado un año,
-            // las siguientes selecciones de nadador/prueba lo reutilizan al instante.
-            let resultadosConfigurados = await conConcurrenciaLimitada(aniosConfigurados, 4, async (anio) => {
-                let sheetId = mapaRankingAnual[anio][generoActual];
-                let dataAnual = cacheRankingsAnuales[`${anio}_${generoActual}`];
-                if (!dataAnual) {
-                    dataAnual = await fetchRankingAnualSheet(sheetId);
-                    cacheRankingsAnuales[`${anio}_${generoActual}`] = dataAnual;
+                if (mapaRankingAnual[anio]) {
+                    let sheetId = mapaRankingAnual[anio][generoActual];
+                    if (sheetId) {
+                        let dataAnual = cacheRankingsAnuales[`${anio}_${generoActual}`];
+                        if (!dataAnual) {
+                            dataAnual = await fetchRankingAnualSheet(sheetId);
+                            cacheRankingsAnuales[`${anio}_${generoActual}`] = dataAnual;
+                        }
+
+                        let keyBusqueda = `${nadador.nombre.toUpperCase()}_${pruebaSel.toUpperCase()}`;
+                        if (dataAnual && dataAnual.has(keyBusqueda)) {
+                            marcaStr = dataAnual.get(keyBusqueda);
+                            segs = tiempoASegundos(marcaStr);
+                        }
+                    }
                 }
-                let marcaStr = (dataAnual && dataAnual.has(keyBusqueda)) ? dataAnual.get(keyBusqueda) : null;
-                return { anio, marcaStr, segs: marcaStr ? tiempoASegundos(marcaStr) : null };
+                return { marcaStr, segs };
             });
 
             // Respuesta obsoleta: el usuario ya seleccionó otro nadador u otra prueba mientras
@@ -2338,25 +2451,8 @@
                 return;
             }
 
-            let mapaResultadosPorAnio = new Map(resultadosConfigurados.map(r => [r.anio, r]));
-            let primerConMarca = resultadosConfigurados.find(r => r.segs !== null && r.segs > 0);
-            // Si el nadador nunca ha nadado esta prueba en ningún año configurado, se arranca
-            // en el año actual (como si este fuera su primer año, igual que el caso de un
-            // debutante en el diseño original).
-            let anioInicio = primerConMarca ? primerConMarca.anio : anioActual;
-
-            let anios = [];
-            for (let a = anioInicio; a <= anioFinProyeccion; a++) anios.push(a);
-
-            let edadesCol = anios.map(y => edadActual + (y - anioActual));
-            let marcasRealesStrs = anios.map(a => {
-                let r = mapaResultadosPorAnio.get(a);
-                return (r && r.marcaStr) ? r.marcaStr : "-";
-            });
-            let marcasRealesSegs = anios.map(a => {
-                let r = mapaResultadosPorAnio.get(a);
-                return r ? r.segs : null;
-            });
+            let marcasRealesStrs = resultadosAnuales.map(r => r.marcaStr);
+            let marcasRealesSegs = resultadosAnuales.map(r => r.segs);
 
             // Restaurar texto informativo con datos reales
             document.getElementById("infoTiempoPwaLP").value = `Prueba: ${pruebaSel} | Tiempo: ${tiempoTxt} | Puntos WA: ${pwaTxt}`;
